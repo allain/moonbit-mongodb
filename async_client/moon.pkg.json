@@ -1,0 +1,12 @@
+{
+  "import": [
+    "allain/mongodb/types",
+    "allain/mongodb/wire",
+    "moonbitlang/async/socket",
+    "moonbitlang/core/buffer",
+    "moonbitlang/core/strconv"
+  ],
+  "test_import": [
+    "moonbitlang/async"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "import": [
+    "allain/mongodb/types",
+    "moonbitlang/core/strconv"
+  ],
+  "test-import": [
+    "allain/mongodb/wire"
+  ]
+}
