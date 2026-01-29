@@ -40,6 +40,8 @@ Add to your `moon.pkg.json`:
 }
 ```
 
+For advanced use cases requiring direct BSON access, also import `allain/mongodb/types`.
+
 Run with native target (required for async TCP):
 
 ```bash
@@ -169,7 +171,7 @@ let updated = users.find_one_and_modify(
 
 ```moonbit
 // Using pipeline stage helpers
-let results = users.aggregate_json([
+let results = users.aggregate([
   @mongodb.match_stage({ "status": "active" }),
   @mongodb.group_stage(
     { "city": "$city" },
@@ -189,15 +191,13 @@ let results = users.aggregate_json([
 
 ### Index Management
 
-Index operations use the BSON API. Add `"allain/mongodb/types"` to your imports:
-
 ```moonbit
 // Create a simple index
-users.create_index(@types.bson_document().set("email", @types.bson_int32(1)))!
+users.create_index({ "email": 1 })!
 
 // Create a unique index with options
 users.create_index(
-  @types.bson_document().set("username", @types.bson_int32(1)),
+  { "username": 1 },
   options={
     name: Some("username_unique"),
     unique: Some(true),
@@ -210,7 +210,7 @@ users.create_index(
 
 // Create a TTL index (auto-expire documents)
 users.create_index(
-  @types.bson_document().set("createdAt", @types.bson_int32(1)),
+  { "createdAt": 1 },
   options={
     name: None,
     unique: None,
@@ -233,20 +233,15 @@ users.drop_index("email_1")!
 
 ### Bulk Operations
 
-Bulk operations use the BSON API. Add `"allain/mongodb/types"` to your imports:
-
 ```moonbit
-// Convert JSON to BSON for bulk operations
 let operations = [
-  @mongodb.BulkOperation::insert(@types.json_to_bson({ "name": "User1" })),
-  @mongodb.BulkOperation::insert(@types.json_to_bson({ "name": "User2" })),
+  @mongodb.BulkOperation::insert({ "name": "User1" }),
+  @mongodb.BulkOperation::insert({ "name": "User2" }),
   @mongodb.BulkOperation::update_one(
-    @types.json_to_bson({ "name": "Alice" }),
-    @types.json_to_bson({ "$set": { "updated": true } }),
+    { "name": "Alice" },
+    { "$set": { "updated": true } },
   ),
-  @mongodb.BulkOperation::delete_one(
-    @types.json_to_bson({ "status": "deleted" }),
-  ),
+  @mongodb.BulkOperation::delete_one({ "status": "deleted" }),
 ]
 
 let result = users.bulk_write(operations)!
@@ -255,16 +250,14 @@ println("Inserted: \{result.inserted_count}, Modified: \{result.modified_count}"
 
 ### Change Streams
 
-Change streams return BSON values. Add `"allain/mongodb/types"` to your imports for pattern matching:
-
 ```moonbit
 // Watch for changes on a collection
 let stream = users.watch()!
 
 // Process change events
 stream.for_each(fn(change) {
-  match change.get("operationType") {
-    Some(@types.String(op)) => println("Operation: \{op}")
+  match change {
+    { "operationType": String(op), .. } => println("Operation: \{op}")
     _ => ()
   }
   true // Return false to stop watching
@@ -347,6 +340,7 @@ for user in results {
 ### Error Handling
 
 ```moonbit
+///|
 let result = users.insert({ "name": "Alice" }) catch {
   @mongodb.MongoError::ConnectionFailed(msg) => {
     println("Connection failed: \{msg}")

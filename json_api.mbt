@@ -55,12 +55,7 @@ pub async fn Collection::query(
       )
     (None, None) => self.find(@types.json_to_bson(filter), limit?, skip?)
   }
-  let bson_docs = cursor.to_array()
-  let json_docs : Array[Json] = []
-  for doc in bson_docs {
-    json_docs.push(@types.bson_to_json(doc))
-  }
-  json_docs
+  cursor.to_array()
 }
 
 ///|
@@ -134,7 +129,7 @@ pub async fn Collection::count(
 
 ///|
 /// Run aggregation pipeline (JSON API)
-pub async fn Collection::aggregate_json(
+pub async fn Collection::aggregate(
   self : Collection,
   pipeline : Array[Json],
 ) -> Array[Json] raise MongoError {
@@ -142,13 +137,8 @@ pub async fn Collection::aggregate_json(
   for stage in pipeline {
     bson_pipeline.push(@types.json_to_bson(stage))
   }
-  let cursor = self.aggregate(bson_pipeline)
-  let bson_docs = cursor.to_array()
-  let json_docs : Array[Json] = []
-  for doc in bson_docs {
-    json_docs.push(@types.bson_to_json(doc))
-  }
-  json_docs
+  let cursor = self.aggregate_bson(bson_pipeline)
+  cursor.to_array()
 }
 
 ///|

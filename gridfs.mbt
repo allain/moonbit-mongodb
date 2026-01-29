@@ -126,7 +126,7 @@ pub async fn GridFSBucket::download(
   let chunk_filter = @types.bson_document().set("files_id", id)
   let sort = @types.bson_document().set("n", @types.bson_int32(1))
   let cursor = chunks_coll.find(chunk_filter, sort~)
-  let chunks = cursor.to_array()
+  let chunks = cursor.to_bson_array()
   for chunk in chunks {
     match chunk.get("data") {
       Some(@types.Binary(data, _)) =>
@@ -191,7 +191,7 @@ pub async fn GridFSBucket::find(
   filter : @types.BsonValue,
 ) -> Array[@types.BsonValue] raise MongoError {
   let cursor = self.files_collection().find(filter)
-  cursor.to_array()
+  cursor.to_bson_array()
 }
 
 ///|

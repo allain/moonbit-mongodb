@@ -511,8 +511,8 @@ pub async fn Collection::distinct(
 }
 
 ///|
-/// Run an aggregation pipeline
-pub async fn Collection::aggregate(
+/// Run an aggregation pipeline (BSON API)
+pub async fn Collection::aggregate_bson(
   self : Collection,
   pipeline : Array[@types.BsonValue],
   batch_size? : Int,

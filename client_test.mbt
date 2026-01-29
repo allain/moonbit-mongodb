@@ -458,8 +458,8 @@ test "find with options" {
     }
     let sorted = cursor3.to_array()
     inspect(sorted.length(), content="1")
-    match sorted[0].get("index") {
-      Some(@types.Int32(idx)) => inspect(idx, content="9") // Highest index
+    match sorted[0] {
+      { "index": Number(idx, ..), .. } => inspect(idx.to_int(), content="9") // Highest index
       _ => println("Expected index field")
     }
 
@@ -499,19 +499,18 @@ test "find with projection" {
     let results = cursor.to_array()
     inspect(results.length(), content="1")
     let doc = results[0]
-    // name and visible should be present
-    match doc.get("name") {
-      Some(@types.String(n)) => inspect(n, content="ProjectTest")
-      _ => println("Expected name field")
+    // name and visible should be present, secret should be excluded
+    match doc {
+      { "name": String(n), "visible": Number(v, ..), .. } => {
+        inspect(n, content="ProjectTest")
+        inspect(v.to_int(), content="123")
+      }
+      _ => println("Expected name and visible fields")
     }
-    match doc.get("visible") {
-      Some(@types.Int32(v)) => inspect(v, content="123")
-      _ => println("Expected visible field")
-    }
-    // secret should be excluded
-    match doc.get("secret") {
-      Some(_) => println("secret field should be excluded")
-      None => ()
+    // Verify secret is excluded (check that our pattern matched without secret)
+    match doc {
+      { "secret": _, .. } => println("secret field should be excluded")
+      _ => ()
     }
 
     // Cleanup
@@ -685,7 +684,7 @@ test "aggregation" {
         @types.bson_document().set("_id", @types.bson_int32(1)),
       ),
     ]
-    let cursor = coll.aggregate(pipeline) catch {
+    let cursor = coll.aggregate_bson(pipeline) catch {
       e => {
         println("Aggregation failed: \{e}")
         client.close()
@@ -973,7 +972,7 @@ test "cursor close" {
     inspect(cursor_id >= 0L, content="true")
 
     // Consume some results first
-    let _ = cursor.next()
+    let _ = cursor.next_json()
 
     // Close the cursor
     cursor.close()
@@ -1013,7 +1012,7 @@ test "cursor has_next and next" {
     // Manually iterate using has_next and next
     let mut count = 0
     while cursor.has_next() {
-      match cursor.next() {
+      match cursor.next_json() {
         Some(_) => count = count + 1
         None => break
       }
@@ -1024,7 +1023,7 @@ test "cursor has_next and next" {
     inspect(cursor.has_next(), content="false")
 
     // next should return None when no more items
-    match cursor.next() {
+    match cursor.next_json() {
       Some(_) => println("Should be None")
       None => ()
     }
@@ -1199,8 +1198,8 @@ test "cursor for_each with multiple batches" {
     // Use for_each to process all documents
     let mut sum = 0
     cursor.for_each(fn(doc) {
-      match doc.get("num") {
-        Some(@types.Int32(n)) => sum = sum + n
+      match doc {
+        { "num": Number(n, ..), .. } => sum = sum + n.to_int()
         _ => ()
       }
     }) catch {
@@ -1273,7 +1272,7 @@ test "create and list indexes" {
     let _ = coll.drop_indexes()
 
     // Create a simple index
-    let index_name = coll.create_index(
+    let index_name = coll.create_index_bson(
       @types.bson_document().set("name", @types.bson_int32(1)),
     ) catch {
       e => {
@@ -1321,7 +1320,7 @@ test "create index with options" {
     let _ = coll.drop_indexes()
 
     // Create an index using default options
-    let index_name = coll.create_index(
+    let index_name = coll.create_index_bson(
       @types.bson_document().set("email", @types.bson_int32(1)),
     ) catch {
       e => {
@@ -1374,10 +1373,8 @@ test "create multiple indexes" {
 
     // Create multiple indexes at once
     let specs : Array[IndexSpec] = [
-      IndexSpec::new(@types.bson_document().set("field1", @types.bson_int32(1))),
-      IndexSpec::new(
-        @types.bson_document().set("field2", @types.bson_int32(-1)),
-      ),
+      IndexSpec::new({ "field1": 1 }),
+      IndexSpec::new({ "field2": -1 }),
     ]
     let names = coll.create_indexes(specs) catch {
       e => {
@@ -1421,7 +1418,7 @@ test "drop index" {
     let _ = coll.drop_indexes()
 
     // Create an index
-    let _ = coll.create_index(
+    let _ = coll.create_index_bson(
       @types.bson_document().set("temp_field", @types.bson_int32(1)),
     )
 
@@ -1472,7 +1469,7 @@ test "index options default" {
 ///|
 /// Test IndexSpec new
 test "index spec new" {
-  let keys = @types.bson_document().set("field", @types.bson_int32(1))
+  let keys : Json = { "field": 1 }
   let spec = IndexSpec::new(keys)
   match spec.options {
     None => ()
@@ -1497,17 +1494,17 @@ test "bulk write mixed operations" {
 
     // Create bulk operations
     let ops : Array[BulkOperation] = [
-      BulkOperation::insert(
+      BulkOperation::insert_bson(
         @types.bson_document()
         .set("name", @types.bson_string("Bulk1"))
         .set("val", @types.bson_int32(1)),
       ),
-      BulkOperation::insert(
+      BulkOperation::insert_bson(
         @types.bson_document()
         .set("name", @types.bson_string("Bulk2"))
         .set("val", @types.bson_int32(2)),
       ),
-      BulkOperation::insert(
+      BulkOperation::insert_bson(
         @types.bson_document()
         .set("name", @types.bson_string("Bulk3"))
         .set("val", @types.bson_int32(3)),
@@ -1561,14 +1558,14 @@ test "bulk write updates" {
 
     // Update operations
     let ops : Array[BulkOperation] = [
-      BulkOperation::update_one(
+      BulkOperation::update_one_bson(
         @types.bson_document().set("category", @types.bson_string("A")),
         @types.bson_document().set(
           "$inc",
           @types.bson_document().set("count", @types.bson_int32(10)),
         ),
       ),
-      BulkOperation::update_many(
+      BulkOperation::update_many_bson(
         @types.bson_document().set("category", @types.bson_string("A")),
         @types.bson_document().set(
           "$set",
@@ -1615,12 +1612,12 @@ test "bulk write deletes" {
 
     // Delete operations
     let ops : Array[BulkOperation] = [
-      BulkOperation::delete_one(
+      BulkOperation::delete_one_bson(
         @types.bson_document()
         .set("type", @types.bson_string("delete"))
         .set("num", @types.bson_int32(1)),
       ),
-      BulkOperation::delete_many(
+      BulkOperation::delete_many_bson(
         @types.bson_document().set("type", @types.bson_string("delete")),
       ),
     ]
@@ -1653,7 +1650,7 @@ test "bulk write deletes" {
 test "bulk operation constructors" {
   // Test insert constructor
   let doc = @types.bson_document().set("test", @types.bson_int32(1))
-  let insert_op = BulkOperation::insert(doc)
+  let insert_op = BulkOperation::insert_bson(doc)
   match insert_op {
     BulkOperation::InsertOne(_) => ()
     _ => println("Expected InsertOne")
@@ -1662,14 +1659,18 @@ test "bulk operation constructors" {
   // Test update_one constructor
   let filter = @types.bson_document()
   let update = @types.bson_document()
-  let update_op = BulkOperation::update_one(filter, update, upsert=false)
+  let update_op = BulkOperation::update_one_bson(filter, update, upsert=false)
   match update_op {
     BulkOperation::UpdateOne(..) => ()
     _ => println("Expected UpdateOne")
   }
 
   // Test update_many constructor
-  let update_many_op = BulkOperation::update_many(filter, update, upsert=true)
+  let update_many_op = BulkOperation::update_many_bson(
+    filter,
+    update,
+    upsert=true,
+  )
   match update_many_op {
     BulkOperation::UpdateMany(..) => ()
     _ => println("Expected UpdateMany")
@@ -1677,21 +1678,25 @@ test "bulk operation constructors" {
 
   // Test replace constructor
   let replacement = @types.bson_document()
-  let replace_op = BulkOperation::replace(filter, replacement, upsert=false)
+  let replace_op = BulkOperation::replace_bson(
+    filter,
+    replacement,
+    upsert=false,
+  )
   match replace_op {
     BulkOperation::ReplaceOne(..) => ()
     _ => println("Expected ReplaceOne")
   }
 
   // Test delete_one constructor
-  let del_one_op = BulkOperation::delete_one(filter)
+  let del_one_op = BulkOperation::delete_one_bson(filter)
   match del_one_op {
     BulkOperation::DeleteOne(_) => ()
     _ => println("Expected DeleteOne")
   }
 
   // Test delete_many constructor
-  let del_many_op = BulkOperation::delete_many(filter)
+  let del_many_op = BulkOperation::delete_many_bson(filter)
   match del_many_op {
     BulkOperation::DeleteMany(_) => ()
     _ => println("Expected DeleteMany")
@@ -1716,7 +1721,7 @@ test "bulk write replace" {
 
     // Replace operation
     let ops : Array[BulkOperation] = [
-      BulkOperation::replace(
+      BulkOperation::replace_bson(
         @types.bson_document().set("name", @types.bson_string("ToReplace")),
         @types.bson_document()
         .set("name", @types.bson_string("Replaced"))
@@ -1882,8 +1887,8 @@ test "json api modify_all" {
 }
 
 ///|
-/// Test JSON API aggregate_json
-test "json api aggregate_json" {
+/// Test JSON API aggregate
+test "json api aggregate" {
   @async.with_event_loop(fn(_root) {
     let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
@@ -1902,7 +1907,7 @@ test "json api aggregate_json" {
       { "$group": { "_id": "$type", "total": { "$sum": "$amount" } } },
       { "$sort": { "_id": 1 } },
     ]
-    let results = coll.aggregate_json(pipeline) catch {
+    let results = coll.aggregate(pipeline) catch {
       e => {
         println("JSON aggregate failed: \{e}")
         client.close()
@@ -3190,7 +3195,7 @@ test "find with hint" {
     )
 
     // Create an index to use as hint
-    let _ = coll.create_index(
+    let _ = coll.create_index_bson(
       @types.bson_document().set("field", @types.bson_int32(1)),
     )
 
@@ -3265,7 +3270,7 @@ test "aggregate with options" {
     let pipeline : Array[@types.BsonValue] = [
       @types.bson_document().set("$match", @types.bson_document()),
     ]
-    let cursor = coll.aggregate(
+    let cursor = coll.aggregate_bson(
       pipeline,
       batch_size=5,
       max_time_ms=10000,

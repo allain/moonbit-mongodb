@@ -2,7 +2,7 @@
 /// Bulk operation types for batch writes
 
 ///|
-/// A single bulk write operation
+/// A single bulk write operation (internal BSON representation)
 pub enum BulkOperation {
   InsertOne(@types.BsonValue)
   UpdateOne(
@@ -25,14 +25,34 @@ pub enum BulkOperation {
 }
 
 ///|
-/// Create an insert operation
-pub fn BulkOperation::insert(doc : @types.BsonValue) -> BulkOperation {
+/// Create an insert operation (JSON API)
+pub fn BulkOperation::insert(doc : Json) -> BulkOperation {
+  InsertOne(@types.json_to_bson(doc))
+}
+
+///|
+/// Create an insert operation (BSON API)
+pub fn BulkOperation::insert_bson(doc : @types.BsonValue) -> BulkOperation {
   InsertOne(doc)
 }
 
 ///|
-/// Create an update one operation
+/// Create an update one operation (JSON API)
 pub fn BulkOperation::update_one(
+  filter : Json,
+  update : Json,
+  upsert? : Bool = false,
+) -> BulkOperation {
+  UpdateOne(
+    filter=@types.json_to_bson(filter),
+    update=@types.json_to_bson(update),
+    upsert~,
+  )
+}
+
+///|
+/// Create an update one operation (BSON API)
+pub fn BulkOperation::update_one_bson(
   filter : @types.BsonValue,
   update : @types.BsonValue,
   upsert? : Bool = false,
@@ -41,8 +61,22 @@ pub fn BulkOperation::update_one(
 }
 
 ///|
-/// Create an update many operation
+/// Create an update many operation (JSON API)
 pub fn BulkOperation::update_many(
+  filter : Json,
+  update : Json,
+  upsert? : Bool = false,
+) -> BulkOperation {
+  UpdateMany(
+    filter=@types.json_to_bson(filter),
+    update=@types.json_to_bson(update),
+    upsert~,
+  )
+}
+
+///|
+/// Create an update many operation (BSON API)
+pub fn BulkOperation::update_many_bson(
   filter : @types.BsonValue,
   update : @types.BsonValue,
   upsert? : Bool = false,
@@ -51,8 +85,22 @@ pub fn BulkOperation::update_many(
 }
 
 ///|
-/// Create a replace operation
+/// Create a replace operation (JSON API)
 pub fn BulkOperation::replace(
+  filter : Json,
+  replacement : Json,
+  upsert? : Bool = false,
+) -> BulkOperation {
+  ReplaceOne(
+    filter=@types.json_to_bson(filter),
+    replacement=@types.json_to_bson(replacement),
+    upsert~,
+  )
+}
+
+///|
+/// Create a replace operation (BSON API)
+pub fn BulkOperation::replace_bson(
   filter : @types.BsonValue,
   replacement : @types.BsonValue,
   upsert? : Bool = false,
@@ -61,14 +109,30 @@ pub fn BulkOperation::replace(
 }
 
 ///|
-/// Create a delete one operation
-pub fn BulkOperation::delete_one(filter : @types.BsonValue) -> BulkOperation {
+/// Create a delete one operation (JSON API)
+pub fn BulkOperation::delete_one(filter : Json) -> BulkOperation {
+  DeleteOne(@types.json_to_bson(filter))
+}
+
+///|
+/// Create a delete one operation (BSON API)
+pub fn BulkOperation::delete_one_bson(
+  filter : @types.BsonValue,
+) -> BulkOperation {
   DeleteOne(filter)
 }
 
 ///|
-/// Create a delete many operation
-pub fn BulkOperation::delete_many(filter : @types.BsonValue) -> BulkOperation {
+/// Create a delete many operation (JSON API)
+pub fn BulkOperation::delete_many(filter : Json) -> BulkOperation {
+  DeleteMany(@types.json_to_bson(filter))
+}
+
+///|
+/// Create a delete many operation (BSON API)
+pub fn BulkOperation::delete_many_bson(
+  filter : @types.BsonValue,
+) -> BulkOperation {
   DeleteMany(filter)
 }
 

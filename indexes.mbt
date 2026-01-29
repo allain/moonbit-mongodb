@@ -8,7 +8,7 @@ pub struct IndexOptions {
   unique : Bool?
   sparse : Bool?
   expire_after_seconds : Int?
-  partial_filter : @types.BsonValue?
+  partial_filter : Json?
   background : Bool?
 }
 
@@ -29,14 +29,24 @@ pub fn IndexOptions::default() -> IndexOptions {
 /// Information about an index
 pub struct IndexInfo {
   name : String
-  key : @types.BsonValue
+  key : Json
   unique : Bool
   sparse : Bool
 }
 
 ///|
-/// Create a single index
+/// Create a single index (JSON API)
 pub async fn Collection::create_index(
+  self : Collection,
+  keys : Json,
+  options? : IndexOptions,
+) -> String raise MongoError {
+  self.create_index_bson(@types.json_to_bson(keys), options?)
+}
+
+///|
+/// Create a single index (BSON API)
+pub async fn Collection::create_index_bson(
   self : Collection,
   keys : @types.BsonValue,
   options? : IndexOptions,
@@ -64,7 +74,8 @@ pub async fn Collection::create_index(
     None => index_doc
   }
   let index_doc = match opts.partial_filter {
-    Some(filter) => index_doc.set("partialFilterExpression", filter)
+    Some(filter) =>
+      index_doc.set("partialFilterExpression", @types.json_to_bson(filter))
     None => index_doc
   }
   let index_doc = match opts.background {
@@ -89,16 +100,13 @@ pub async fn Collection::create_index(
 ///|
 /// Index specification for batch index creation
 pub struct IndexSpec {
-  keys : @types.BsonValue
+  keys : Json
   options : IndexOptions?
 }
 
 ///|
 /// Create an index specification
-pub fn IndexSpec::new(
-  keys : @types.BsonValue,
-  options? : IndexOptions,
-) -> IndexSpec {
+pub fn IndexSpec::new(keys : Json, options? : IndexOptions) -> IndexSpec {
   { keys, options }
 }
 
@@ -111,7 +119,7 @@ pub async fn Collection::create_indexes(
   let indexes_array = @types.bson_array()
   let names : Array[String] = []
   for index in indexes {
-    let keys = index.keys
+    let keys = @types.json_to_bson(index.keys)
     let opts = index.options.unwrap_or(IndexOptions::default())
     let index_doc = @types.bson_document().set("key", keys)
     let name = match opts.name {
@@ -133,7 +141,8 @@ pub async fn Collection::create_indexes(
       None => index_doc
     }
     let index_doc = match opts.partial_filter {
-      Some(filter) => index_doc.set("partialFilterExpression", filter)
+      Some(filter) =>
+        index_doc.set("partialFilterExpression", @types.json_to_bson(filter))
       None => index_doc
     }
     ignore(indexes_array.push(index_doc))
@@ -197,8 +206,8 @@ pub async fn Collection::list_indexes(
                   _ => ""
                 }
                 let key = match doc.get("key") {
-                  Some(k) => k
-                  _ => @types.bson_document()
+                  Some(k) => @types.bson_to_json(k)
+                  _ => Json::object({})
                 }
                 let unique = match doc.get("unique") {
                   Some(@types.Boolean(b)) => b

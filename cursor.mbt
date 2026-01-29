@@ -25,14 +25,23 @@ pub fn Cursor::has_next(self : Cursor) -> Bool {
 }
 
 ///|
-/// Get next document from current batch
-pub fn Cursor::next(self : Cursor) -> @types.BsonValue? {
+/// Get next document from current batch (BSON - used internally)
+fn Cursor::next(self : Cursor) -> @types.BsonValue? {
   if self.index < self.batch.length() {
     let doc = self.batch[self.index]
     self.index = self.index + 1
     Some(doc)
   } else {
     None
+  }
+}
+
+///|
+/// Get next document as JSON
+pub fn Cursor::next_json(self : Cursor) -> Json? {
+  match self.next() {
+    Some(doc) => Some(@types.bson_to_json(doc))
+    None => None
   }
 }
 
@@ -106,8 +115,19 @@ pub async fn Cursor::get_more(
 }
 
 ///|
-/// Collect all documents into an array
-pub async fn Cursor::to_array(
+/// Collect all documents into a JSON array
+pub async fn Cursor::to_array(self : Cursor) -> Array[Json] raise MongoError {
+  let bson_result = self.to_bson_array()
+  let result : Array[Json] = []
+  for doc in bson_result {
+    result.push(@types.bson_to_json(doc))
+  }
+  result
+}
+
+///|
+/// Collect all documents into a BSON array
+pub async fn Cursor::to_bson_array(
   self : Cursor,
 ) -> Array[@types.BsonValue] raise MongoError {
   let result : Array[@types.BsonValue] = []
@@ -153,8 +173,17 @@ pub async fn Cursor::close(self : Cursor) -> Unit {
 }
 
 ///|
-/// Iterate over cursor with a callback
+/// Iterate over cursor with a callback (JSON API)
 pub async fn Cursor::for_each(
+  self : Cursor,
+  f : (Json) -> Unit,
+) -> Unit raise MongoError {
+  self.for_each_bson(fn(doc) { f(@types.bson_to_json(doc)) })
+}
+
+///|
+/// Iterate over cursor with a callback (BSON API)
+pub async fn Cursor::for_each_bson(
   self : Cursor,
   f : (@types.BsonValue) -> Unit,
 ) -> Unit raise MongoError {

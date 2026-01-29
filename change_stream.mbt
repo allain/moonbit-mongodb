@@ -109,8 +109,17 @@ pub async fn Collection::watch(
 }
 
 ///|
-/// Get the next change event
-pub async fn ChangeStream::next(
+/// Get the next change event (JSON API)
+pub async fn ChangeStream::next(self : ChangeStream) -> Json? raise MongoError {
+  match self.next_bson() {
+    Some(doc) => Some(@types.bson_to_json(doc))
+    None => None
+  }
+}
+
+///|
+/// Get the next change event (BSON API)
+pub async fn ChangeStream::next_bson(
   self : ChangeStream,
 ) -> @types.BsonValue? raise MongoError {
   // Try to get from current batch
@@ -156,13 +165,30 @@ pub async fn ChangeStream::close(self : ChangeStream) -> Unit {
 }
 
 ///|
-/// Iterate over change events with a callback
+/// Iterate over change events with a callback (JSON API)
 pub async fn ChangeStream::for_each(
+  self : ChangeStream,
+  f : (Json) -> Bool, // Return false to stop
+) -> Unit raise MongoError {
+  while true {
+    match self.next() {
+      Some(doc) => if not(f(doc)) { break }
+      None =>
+        // No more events available right now
+        // In a real implementation, we'd wait for more
+        break
+    }
+  }
+}
+
+///|
+/// Iterate over change events with a callback (BSON API)
+pub async fn ChangeStream::for_each_bson(
   self : ChangeStream,
   f : (@types.BsonValue) -> Bool, // Return false to stop
 ) -> Unit raise MongoError {
   while true {
-    match self.next() {
+    match self.next_bson() {
       Some(doc) => if not(f(doc)) { break }
       None =>
         // No more events available right now
