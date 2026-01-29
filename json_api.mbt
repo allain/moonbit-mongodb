@@ -132,12 +132,15 @@ pub async fn Collection::count(
 pub async fn Collection::aggregate(
   self : Collection,
   pipeline : Array[Json],
+  batch_size? : Int,
+  max_time_ms? : Int,
+  allow_disk_use? : Bool,
 ) -> Array[Json] raise MongoError {
   let bson_pipeline : Array[@types.BsonValue] = []
   for stage in pipeline {
     bson_pipeline.push(@types.json_to_bson(stage))
   }
-  let cursor = self.aggregate_bson(bson_pipeline)
+  let cursor = self.aggregate_bson(bson_pipeline, batch_size?, max_time_ms?, allow_disk_use?)
   cursor.to_array()
 }
 
@@ -194,6 +197,64 @@ pub async fn Collection::find_one_and_modify(
         @types.json_to_bson(update),
       )
   }
+  match result {
+    Some(doc) => Some(@types.bson_to_json(doc))
+    None => None
+  }
+}
+
+///|
+/// Find and delete one document (JSON API)
+pub async fn Collection::find_and_delete(
+  self : Collection,
+  filter : Json,
+  sort? : Json,
+  projection? : Json,
+) -> Json? raise MongoError {
+  let result = match (sort, projection) {
+    (Some(s), Some(p)) =>
+      self.find_one_and_delete(
+        @types.json_to_bson(filter),
+        sort=@types.json_to_bson(s),
+        projection=@types.json_to_bson(p),
+      )
+    (Some(s), None) =>
+      self.find_one_and_delete(
+        @types.json_to_bson(filter),
+        sort=@types.json_to_bson(s),
+      )
+    (None, Some(p)) =>
+      self.find_one_and_delete(
+        @types.json_to_bson(filter),
+        projection=@types.json_to_bson(p),
+      )
+    (None, None) => self.find_one_and_delete(@types.json_to_bson(filter))
+  }
+  match result {
+    Some(doc) => Some(@types.bson_to_json(doc))
+    None => None
+  }
+}
+
+///|
+/// Find and replace one document (JSON API)
+pub async fn Collection::find_and_replace(
+  self : Collection,
+  filter : Json,
+  replacement : Json,
+  return_new? : Bool,
+  upsert? : Bool,
+) -> Json? raise MongoError {
+  let return_doc = match return_new {
+    Some(true) => ReturnDocument::After
+    _ => ReturnDocument::Before
+  }
+  let result = self.find_one_and_replace(
+    @types.json_to_bson(filter),
+    @types.json_to_bson(replacement),
+    return_document=return_doc,
+    upsert=upsert.unwrap_or(false),
+  )
   match result {
     Some(doc) => Some(@types.bson_to_json(doc))
     None => None

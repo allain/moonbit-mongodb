@@ -126,8 +126,8 @@ pub async fn Cursor::to_array(self : Cursor) -> Array[Json] raise MongoError {
 }
 
 ///|
-/// Collect all documents into a BSON array
-pub async fn Cursor::to_bson_array(
+/// Collect all documents into a BSON array (internal)
+async fn Cursor::to_bson_array(
   self : Cursor,
 ) -> Array[@types.BsonValue] raise MongoError {
   let result : Array[@types.BsonValue] = []
@@ -182,8 +182,8 @@ pub async fn Cursor::for_each(
 }
 
 ///|
-/// Iterate over cursor with a callback (BSON API)
-pub async fn Cursor::for_each_bson(
+/// Iterate over cursor with a callback (internal BSON API)
+async fn Cursor::for_each_bson(
   self : Cursor,
   f : (@types.BsonValue) -> Unit,
 ) -> Unit raise MongoError {

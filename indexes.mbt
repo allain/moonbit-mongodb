@@ -45,8 +45,8 @@ pub async fn Collection::create_index(
 }
 
 ///|
-/// Create a single index (BSON API)
-pub async fn Collection::create_index_bson(
+/// Create a single index (internal BSON API)
+async fn Collection::create_index_bson(
   self : Collection,
   keys : @types.BsonValue,
   options? : IndexOptions,

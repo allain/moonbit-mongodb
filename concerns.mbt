@@ -66,15 +66,6 @@ pub fn ReadConcern::snapshot() -> ReadConcern {
 }
 
 ///|
-/// Convert read concern to BSON
-pub fn ReadConcern::to_bson(self : ReadConcern) -> @types.BsonValue {
-  @types.bson_document().set(
-    "level",
-    @types.bson_string(self.level.to_string()),
-  )
-}
-
-///|
 /// Write concern w value
 pub enum WriteConcernW {
   Number(Int)
@@ -154,27 +145,6 @@ pub fn WriteConcern::with_timeout(
   timeout_ms : Int,
 ) -> WriteConcern {
   { w: self.w, j: self.j, wtimeout: Some(timeout_ms) }
-}
-
-///|
-/// Convert write concern to BSON
-pub fn WriteConcern::to_bson(self : WriteConcern) -> @types.BsonValue {
-  let doc = @types.bson_document()
-  let doc = match self.w {
-    Some(Number(n)) => doc.set("w", @types.bson_int32(n))
-    Some(Majority) => doc.set("w", @types.bson_string("majority"))
-    Some(Tag(t)) => doc.set("w", @types.bson_string(t))
-    None => doc
-  }
-  let doc = match self.j {
-    Some(j) => doc.set("j", @types.bson_bool(j))
-    None => doc
-  }
-  let doc = match self.wtimeout {
-    Some(t) => doc.set("wtimeout", @types.bson_int32(t))
-    None => doc
-  }
-  doc
 }
 
 ///|
@@ -265,26 +235,3 @@ pub fn ReadPreference::with_max_staleness(
   { mode: self.mode, tags: self.tags, max_staleness_seconds: Some(seconds) }
 }
 
-///|
-/// Convert read preference to BSON
-pub fn ReadPreference::to_bson(self : ReadPreference) -> @types.BsonValue {
-  let doc = @types.bson_document().set(
-    "mode",
-    @types.bson_string(self.mode.to_string()),
-  )
-  let doc = match self.tags {
-    Some(tags) => {
-      let arr = @types.bson_array()
-      for tag in tags {
-        ignore(arr.push(tag))
-      }
-      doc.set("tags", arr)
-    }
-    None => doc
-  }
-  let doc = match self.max_staleness_seconds {
-    Some(s) => doc.set("maxStalenessSeconds", @types.bson_int32(s))
-    None => doc
-  }
-  doc
-}

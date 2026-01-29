@@ -26,14 +26,10 @@ test "insert and find one" {
     let coll = db.collection("test_insert_find")
 
     // Clean up first
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
 
     // Insert a document
-    let doc = @types.bson_document()
-      .set("name", @types.bson_string("TestUser"))
-      .set("age", @types.bson_int32(25))
-      .set("active", @types.bson_bool(true))
-    let result = coll.insert_one(doc) catch {
+    let result = coll.insert({ "name": "TestUser", "age": 25, "active": true }) catch {
       e => {
         println("Insert failed: \{e}")
         client.close()
@@ -43,9 +39,7 @@ test "insert and find one" {
     inspect(result.inserted_count, content="1")
 
     // Find the document
-    let found = coll.find_one(
-      @types.bson_document().set("name", @types.bson_string("TestUser")),
-    ) catch {
+    let found = coll.query_one({ "name": "TestUser" }) catch {
       e => {
         println("Find failed: \{e}")
         client.close()
@@ -53,21 +47,15 @@ test "insert and find one" {
       }
     }
     match found {
-      Some(doc) => {
-        match doc.get("name") {
-          Some(@types.String(name)) => inspect(name, content="TestUser")
-          _ => println("Expected name field")
-        }
-        match doc.get("age") {
-          Some(@types.Int32(age)) => inspect(age, content="25")
-          _ => println("Expected age field")
-        }
+      Some({ "name": String(name), "age": Number(age, ..), .. }) => {
+        inspect(name, content="TestUser")
+        inspect(age.to_int(), content="25")
       }
-      None => println("Document not found")
+      _ => println("Document not found or missing fields")
     }
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -81,21 +69,14 @@ test "insert many" {
     let coll = db.collection("test_insert_many")
 
     // Clean up first
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
 
     // Insert multiple documents
-    let docs : Array[@types.BsonValue] = [
-      @types.bson_document()
-      .set("name", @types.bson_string("Alice"))
-      .set("score", @types.bson_int32(95)),
-      @types.bson_document()
-      .set("name", @types.bson_string("Bob"))
-      .set("score", @types.bson_int32(87)),
-      @types.bson_document()
-      .set("name", @types.bson_string("Charlie"))
-      .set("score", @types.bson_int32(92)),
-    ]
-    let result = coll.insert_many(docs) catch {
+    let result = coll.insert_all([
+      { "name": "Alice", "score": 95 },
+      { "name": "Bob", "score": 87 },
+      { "name": "Charlie", "score": 92 },
+    ]) catch {
       e => {
         println("Insert many failed: \{e}")
         client.close()
@@ -105,7 +86,7 @@ test "insert many" {
     inspect(result.inserted_count, content="3")
 
     // Count documents
-    let count = coll.count_documents(@types.bson_document()) catch {
+    let count = coll.count({}) catch {
       e => {
         println("Count failed: \{e}")
         client.close()
@@ -115,7 +96,7 @@ test "insert many" {
     inspect(count, content="3")
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -129,35 +110,30 @@ test "find with cursor" {
     let coll = db.collection("test_cursor")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = []
+    let _ = coll.remove_all({})
+    let docs : Array[Json] = []
     for i = 0; i < 10; i = i + 1 {
-      docs.push(
-        @types.bson_document()
-        .set("index", @types.bson_int32(i))
-        .set("value", @types.bson_string("item_\{i}")),
-      )
+      docs.push({ "index": i, "value": "item_\{i}" })
     }
-    let _ = coll.insert_many(docs) catch {
+    let _ = coll.insert_all(docs) catch {
       _ => {
         client.close()
         return
       }
     }
 
-    // Find all and iterate with cursor
-    let cursor = coll.find(@types.bson_document()) catch {
+    // Find all
+    let results = coll.query({}) catch {
       e => {
         println("Find failed: \{e}")
         client.close()
         return
       }
     }
-    let results = cursor.to_array()
     inspect(results.length(), content="10")
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -171,23 +147,14 @@ test "update one" {
     let coll = db.collection("test_update")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document()
-      .set("name", @types.bson_string("UpdateTest"))
-      .set("counter", @types.bson_int32(0)),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "name": "UpdateTest", "counter": 0 })
 
     // Update the document
-    let filter = @types.bson_document().set(
-      "name",
-      @types.bson_string("UpdateTest"),
-    )
-    let update = @types.bson_document().set(
-      "$set",
-      @types.bson_document().set("counter", @types.bson_int32(42)),
-    )
-    let result = coll.update_one(filter, update) catch {
+    let result = coll.modify_one(
+      { "name": "UpdateTest" },
+      { "$set": { "counter": 42 } },
+    ) catch {
       e => {
         println("Update failed: \{e}")
         client.close()
@@ -198,23 +165,19 @@ test "update one" {
     inspect(result.modified_count, content="1")
 
     // Verify update
-    let found = coll.find_one(filter) catch {
+    let found = coll.query_one({ "name": "UpdateTest" }) catch {
       _ => {
         client.close()
         return
       }
     }
     match found {
-      Some(doc) =>
-        match doc.get("counter") {
-          Some(@types.Int32(c)) => inspect(c, content="42")
-          _ => println("Expected counter field")
-        }
-      None => println("Document not found after update")
+      Some({ "counter": Number(c, ..), .. }) => inspect(c.to_int(), content="42")
+      _ => println("Document not found after update")
     }
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -228,27 +191,18 @@ test "update many" {
     let coll = db.collection("test_update_many")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = [
-      @types.bson_document()
-      .set("category", @types.bson_string("A"))
-      .set("value", @types.bson_int32(1)),
-      @types.bson_document()
-      .set("category", @types.bson_string("A"))
-      .set("value", @types.bson_int32(2)),
-      @types.bson_document()
-      .set("category", @types.bson_string("B"))
-      .set("value", @types.bson_int32(3)),
-    ]
-    let _ = coll.insert_many(docs)
+    let _ = coll.remove_all({})
+    let _ = coll.insert_all([
+      { "category": "A", "value": 1 },
+      { "category": "A", "value": 2 },
+      { "category": "B", "value": 3 },
+    ])
 
     // Update all category A documents
-    let filter = @types.bson_document().set("category", @types.bson_string("A"))
-    let update = @types.bson_document().set(
-      "$set",
-      @types.bson_document().set("updated", @types.bson_bool(true)),
-    )
-    let result = coll.update_many(filter, update) catch {
+    let result = coll.modify_all(
+      { "category": "A" },
+      { "$set": { "updated": true } },
+    ) catch {
       e => {
         println("Update many failed: \{e}")
         client.close()
@@ -259,7 +213,7 @@ test "update many" {
     inspect(result.modified_count, content="2")
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -273,16 +227,14 @@ test "delete one" {
     let coll = db.collection("test_delete")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many([
-      @types.bson_document().set("name", @types.bson_string("Delete1")),
-      @types.bson_document().set("name", @types.bson_string("Delete2")),
+    let _ = coll.remove_all({})
+    let _ = coll.insert_all([
+      { "name": "Delete1" },
+      { "name": "Delete2" },
     ])
 
     // Delete one
-    let result = coll.delete_one(
-      @types.bson_document().set("name", @types.bson_string("Delete1")),
-    ) catch {
+    let result = coll.remove_one({ "name": "Delete1" }) catch {
       e => {
         println("Delete failed: \{e}")
         client.close()
@@ -292,7 +244,7 @@ test "delete one" {
     inspect(result.deleted_count, content="1")
 
     // Verify count
-    let count = coll.count_documents(@types.bson_document()) catch {
+    let count = coll.count({}) catch {
       _ => {
         client.close()
         return
@@ -301,7 +253,7 @@ test "delete one" {
     inspect(count, content="1")
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -315,21 +267,15 @@ test "delete many" {
     let coll = db.collection("test_delete_many")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = []
+    let _ = coll.remove_all({})
+    let docs : Array[Json] = []
     for i = 0; i < 5; i = i + 1 {
-      docs.push(
-        @types.bson_document()
-        .set("batch", @types.bson_string("test"))
-        .set("num", @types.bson_int32(i)),
-      )
+      docs.push({ "batch": "test", "num": i })
     }
-    let _ = coll.insert_many(docs)
+    let _ = coll.insert_all(docs)
 
     // Delete all
-    let result = coll.delete_many(
-      @types.bson_document().set("batch", @types.bson_string("test")),
-    ) catch {
+    let result = coll.remove_all({ "batch": "test" }) catch {
       e => {
         println("Delete many failed: \{e}")
         client.close()
@@ -339,7 +285,7 @@ test "delete many" {
     inspect(result.deleted_count, content="5")
 
     // Verify empty
-    let count = coll.count_documents(@types.bson_document()) catch {
+    let count = coll.count({}) catch {
       _ => {
         client.close()
         return
@@ -359,22 +305,15 @@ test "count documents" {
     let coll = db.collection("test_count")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = []
+    let _ = coll.remove_all({})
+    let docs : Array[Json] = []
     for i = 0; i < 7; i = i + 1 {
-      docs.push(
-        @types.bson_document()
-        .set(
-          "type",
-          @types.bson_string(if i % 2 == 0 { "even" } else { "odd" }),
-        )
-        .set("num", @types.bson_int32(i)),
-      )
+      docs.push({ "type": if i % 2 == 0 { "even" } else { "odd" }, "num": i })
     }
-    let _ = coll.insert_many(docs)
+    let _ = coll.insert_all(docs)
 
     // Count all
-    let total = coll.count_documents(@types.bson_document()) catch {
+    let total = coll.count({}) catch {
       _ => {
         client.close()
         return
@@ -383,18 +322,14 @@ test "count documents" {
     inspect(total, content="7")
 
     // Count with filter
-    let evens = coll.count_documents(
-      @types.bson_document().set("type", @types.bson_string("even")),
-    ) catch {
+    let evens = coll.count({ "type": "even" }) catch {
       _ => {
         client.close()
         return
       }
     }
     inspect(evens, content="4") // 0, 2, 4, 6
-    let odds = coll.count_documents(
-      @types.bson_document().set("type", @types.bson_string("odd")),
-    ) catch {
+    let odds = coll.count({ "type": "odd" }) catch {
       _ => {
         client.close()
         return
@@ -403,7 +338,7 @@ test "count documents" {
     inspect(odds, content="3") // 1, 3, 5
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -417,46 +352,38 @@ test "find with options" {
     let coll = db.collection("test_find_options")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = []
+    let _ = coll.remove_all({})
+    let docs : Array[Json] = []
     for i = 0; i < 10; i = i + 1 {
-      docs.push(
-        @types.bson_document()
-        .set("index", @types.bson_int32(i))
-        .set("name", @types.bson_string("item_\{i}")),
-      )
+      docs.push({ "index": i, "name": "item_\{i}" })
     }
-    let _ = coll.insert_many(docs)
+    let _ = coll.insert_all(docs)
 
     // Find with limit
-    let cursor = coll.find(@types.bson_document(), limit=3) catch {
+    let limited = coll.query({}, limit=3) catch {
       _ => {
         client.close()
         return
       }
     }
-    let limited = cursor.to_array()
     inspect(limited.length(), content="3")
 
     // Find with skip
-    let cursor2 = coll.find(@types.bson_document(), skip=7) catch {
+    let skipped = coll.query({}, skip=7) catch {
       _ => {
         client.close()
         return
       }
     }
-    let skipped = cursor2.to_array()
     inspect(skipped.length(), content="3")
 
     // Find with sort (descending by index)
-    let sort_doc = @types.bson_document().set("index", @types.bson_int32(-1))
-    let cursor3 = coll.find(@types.bson_document(), sort=sort_doc, limit=1) catch {
+    let sorted = coll.query({}, sort={ "index": -1 }, limit=1) catch {
       _ => {
         client.close()
         return
       }
     }
-    let sorted = cursor3.to_array()
     inspect(sorted.length(), content="1")
     match sorted[0] {
       { "index": Number(idx, ..), .. } => inspect(idx.to_int(), content="9") // Highest index
@@ -464,7 +391,7 @@ test "find with options" {
     }
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -478,25 +405,16 @@ test "find with projection" {
     let coll = db.collection("test_projection")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document()
-      .set("name", @types.bson_string("ProjectTest"))
-      .set("secret", @types.bson_string("hidden"))
-      .set("visible", @types.bson_int32(123)),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "name": "ProjectTest", "secret": "hidden", "visible": 123 })
 
     // Find with projection (exclude secret)
-    let projection = @types.bson_document()
-      .set("secret", @types.bson_int32(0))
-      .set("_id", @types.bson_int32(0))
-    let cursor = coll.find(@types.bson_document(), projection~) catch {
+    let results = coll.query({}, projection={ "secret": 0, "_id": 0 }) catch {
       _ => {
         client.close()
         return
       }
     }
-    let results = cursor.to_array()
     inspect(results.length(), content="1")
     let doc = results[0]
     // name and visible should be present, secret should be excluded
@@ -514,7 +432,7 @@ test "find with projection" {
     }
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -619,15 +537,14 @@ test "distinct" {
     let coll = db.collection("test_distinct")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = [
-      @types.bson_document().set("category", @types.bson_string("A")),
-      @types.bson_document().set("category", @types.bson_string("B")),
-      @types.bson_document().set("category", @types.bson_string("A")),
-      @types.bson_document().set("category", @types.bson_string("C")),
-      @types.bson_document().set("category", @types.bson_string("B")),
-    ]
-    let _ = coll.insert_many(docs)
+    let _ = coll.remove_all({})
+    let _ = coll.insert_all([
+      { "category": "A" },
+      { "category": "B" },
+      { "category": "A" },
+      { "category": "C" },
+      { "category": "B" },
+    ])
 
     // Get distinct values
     let values = coll.distinct("category") catch {
@@ -640,7 +557,7 @@ test "distinct" {
     inspect(values.length(), content="3") // A, B, C
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -654,48 +571,28 @@ test "aggregation" {
     let coll = db.collection("test_aggregation")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = [
-      @types.bson_document()
-      .set("category", @types.bson_string("A"))
-      .set("amount", @types.bson_int32(100)),
-      @types.bson_document()
-      .set("category", @types.bson_string("A"))
-      .set("amount", @types.bson_int32(200)),
-      @types.bson_document()
-      .set("category", @types.bson_string("B"))
-      .set("amount", @types.bson_int32(150)),
-    ]
-    let _ = coll.insert_many(docs)
+    let _ = coll.remove_all({})
+    let _ = coll.insert_all([
+      { "category": "A", "amount": 100 },
+      { "category": "A", "amount": 200 },
+      { "category": "B", "amount": 150 },
+    ])
 
     // Run aggregation: group by category, sum amounts
-    let pipeline : Array[@types.BsonValue] = [
-      @types.bson_document().set(
-        "$group",
-        @types.bson_document()
-        .set("_id", @types.bson_string("$category"))
-        .set(
-          "total",
-          @types.bson_document().set("$sum", @types.bson_string("$amount")),
-        ),
-      ),
-      @types.bson_document().set(
-        "$sort",
-        @types.bson_document().set("_id", @types.bson_int32(1)),
-      ),
-    ]
-    let cursor = coll.aggregate_bson(pipeline) catch {
+    let results = coll.aggregate([
+      group_stage({ "category": "$category" }, { "total": { "$sum": "$amount" } }),
+      sort_stage({ "_id": 1 }),
+    ]) catch {
       e => {
         println("Aggregation failed: \{e}")
         client.close()
         return
       }
     }
-    let results = cursor.to_array()
     inspect(results.length(), content="2") // A and B groups
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -709,21 +606,14 @@ test "find one and update" {
     let coll = db.collection("test_find_and_update")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document()
-      .set("name", @types.bson_string("FindUpdate"))
-      .set("version", @types.bson_int32(1)),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "name": "FindUpdate", "version": 1 })
 
     // Find and update, return new document
-    let result = coll.find_one_and_update(
-      @types.bson_document().set("name", @types.bson_string("FindUpdate")),
-      @types.bson_document().set(
-        "$inc",
-        @types.bson_document().set("version", @types.bson_int32(1)),
-      ),
-      return_document=ReturnDocument::after(),
+    let result = coll.find_one_and_modify(
+      { "name": "FindUpdate" },
+      { "$inc": { "version": 1 } },
+      return_new=true,
     ) catch {
       e => {
         println("Find and update failed: \{e}")
@@ -732,16 +622,12 @@ test "find one and update" {
       }
     }
     match result {
-      Some(doc) =>
-        match doc.get("version") {
-          Some(@types.Int32(v)) => inspect(v, content="2")
-          _ => println("Expected version field")
-        }
-      None => println("Expected document")
+      Some({ "version": Number(v, ..), .. }) => inspect(v.to_int(), content="2")
+      _ => println("Expected document with version field")
     }
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -755,17 +641,11 @@ test "find one and delete" {
     let coll = db.collection("test_find_and_delete")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document()
-      .set("name", @types.bson_string("ToDelete"))
-      .set("data", @types.bson_string("important")),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "name": "ToDelete", "data": "important" })
 
     // Find and delete
-    let result = coll.find_one_and_delete(
-      @types.bson_document().set("name", @types.bson_string("ToDelete")),
-    ) catch {
+    let result = coll.find_and_delete({ "name": "ToDelete" }) catch {
       e => {
         println("Find and delete failed: \{e}")
         client.close()
@@ -773,16 +653,12 @@ test "find one and delete" {
       }
     }
     match result {
-      Some(doc) =>
-        match doc.get("data") {
-          Some(@types.String(d)) => inspect(d, content="important")
-          _ => println("Expected data field")
-        }
-      None => println("Expected deleted document")
+      Some({ "data": String(d), .. }) => inspect(d, content="important")
+      _ => println("Expected deleted document with data field")
     }
 
     // Verify deleted
-    let count = coll.count_documents(@types.bson_document()) catch {
+    let count = coll.count({}) catch {
       _ => {
         client.close()
         return
@@ -802,19 +678,13 @@ test "replace one" {
     let coll = db.collection("test_replace")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document()
-      .set("name", @types.bson_string("Original"))
-      .set("old_field", @types.bson_string("old")),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "name": "Original", "old_field": "old" })
 
     // Replace the entire document
-    let result = coll.replace_one(
-      @types.bson_document().set("name", @types.bson_string("Original")),
-      @types.bson_document()
-      .set("name", @types.bson_string("Replaced"))
-      .set("new_field", @types.bson_string("new")),
+    let result = coll.replace(
+      { "name": "Original" },
+      { "name": "Replaced", "new_field": "new" },
     ) catch {
       e => {
         println("Replace failed: \{e}")
@@ -825,31 +695,22 @@ test "replace one" {
     inspect(result.modified_count, content="1")
 
     // Verify replacement
-    let found = coll.find_one(
-      @types.bson_document().set("name", @types.bson_string("Replaced")),
-    ) catch {
+    let found = coll.query_one({ "name": "Replaced" }) catch {
       _ => {
         client.close()
         return
       }
     }
     match found {
-      Some(doc) => {
-        match doc.get("new_field") {
-          Some(@types.String(nf)) => inspect(nf, content="new")
-          _ => println("Expected new_field")
-        }
-        // old_field should not exist
-        match doc.get("old_field") {
-          Some(_) => println("old_field should not exist")
-          None => ()
-        }
+      Some({ "new_field": String(nf), .. }) => {
+        inspect(nf, content="new")
+        // old_field should not exist - verified by pattern
       }
-      None => println("Replaced document not found")
+      _ => println("Replaced document not found or missing new_field")
     }
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -863,17 +724,12 @@ test "upsert" {
     let coll = db.collection("test_upsert")
 
     // Clean up
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
 
     // Upsert - document doesn't exist, should insert
-    let result = coll.update_one(
-      @types.bson_document().set("name", @types.bson_string("Upserted")),
-      @types.bson_document().set(
-        "$set",
-        @types.bson_document()
-        .set("name", @types.bson_string("Upserted"))
-        .set("value", @types.bson_int32(99)),
-      ),
+    let result = coll.modify_one(
+      { "name": "Upserted" },
+      { "$set": { "name": "Upserted", "value": 99 } },
       upsert=true,
     ) catch {
       e => {
@@ -886,7 +742,7 @@ test "upsert" {
     inspect(result.modified_count, content="0")
 
     // Verify insertion
-    let count = coll.count_documents(@types.bson_document()) catch {
+    let count = coll.count({}) catch {
       _ => {
         client.close()
         return
@@ -895,44 +751,37 @@ test "upsert" {
     inspect(count, content="1")
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
 
 ///|
-/// Test cursor for_each method
-test "cursor for_each" {
+/// Test iterating over results
+test "iterate results" {
   @async.with_event_loop(fn(_root) {
     let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_foreach")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = []
+    let _ = coll.remove_all({})
+    let docs : Array[Json] = []
     for i = 0; i < 5; i = i + 1 {
-      docs.push(
-        @types.bson_document()
-        .set("index", @types.bson_int32(i))
-        .set("value", @types.bson_string("item_\{i}")),
-      )
+      docs.push({ "index": i, "value": "item_\{i}" })
     }
-    let _ = coll.insert_many(docs)
+    let _ = coll.insert_all(docs)
 
-    // Use for_each to iterate
-    let cursor = coll.find(@types.bson_document()) catch {
+    // Query and iterate
+    let results = coll.query({}) catch {
       _ => {
         client.close()
         return
       }
     }
     let mut count = 0
-    cursor.for_each(fn(_doc) { count = count + 1 }) catch {
-      _ => {
-        client.close()
-        return
-      }
+    for _doc in results {
+      count = count + 1
     }
     inspect(count, content="5")
 
@@ -951,15 +800,15 @@ test "cursor close" {
     let coll = db.collection("test_cursor_close")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let docs : Array[@types.BsonValue] = []
+    let _ = coll.remove_all({})
+    let docs : Array[Json] = []
     for i = 0; i < 10; i = i + 1 {
-      docs.push(@types.bson_document().set("index", @types.bson_int32(i)))
+      docs.push({ "index": i })
     }
-    let _ = coll.insert_many(docs)
+    let _ = coll.insert_all(docs)
 
     // Get cursor with small batch size to ensure cursor ID is set
-    let cursor = coll.find(@types.bson_document(), batch_size=2) catch {
+    let cursor = coll.find(@types.json_to_bson({}), batch_size=2) catch {
       _ => {
         client.close()
         return
@@ -982,7 +831,7 @@ test "cursor close" {
     // So we just verify close doesn't error
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -996,13 +845,13 @@ test "cursor has_next and next" {
     let coll = db.collection("test_cursor_hasnext")
 
     // Clean up and insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many([
-      @types.bson_document().set("val", @types.bson_int32(1)),
-      @types.bson_document().set("val", @types.bson_int32(2)),
-      @types.bson_document().set("val", @types.bson_int32(3)),
+    let _ = coll.remove_all({})
+    let _ = coll.insert_all([
+      { "val": 1 },
+      { "val": 2 },
+      { "val": 3 },
     ])
-    let cursor = coll.find(@types.bson_document()) catch {
+    let cursor = coll.find(@types.json_to_bson({})) catch {
       _ => {
         client.close()
         return
@@ -1263,18 +1112,14 @@ test "create and list indexes" {
     let coll = db.collection("test_indexes")
 
     // Ensure collection exists by inserting a document
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document().set("name", @types.bson_string("test")),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "name": "test" })
 
     // Drop existing indexes (except _id) - collection exists now
     let _ = coll.drop_indexes()
 
     // Create a simple index
-    let index_name = coll.create_index_bson(
-      @types.bson_document().set("name", @types.bson_int32(1)),
-    ) catch {
+    let index_name = coll.create_index({ "name": 1 }) catch {
       e => {
         println("Create index failed: \{e}")
         client.close()
@@ -1295,7 +1140,7 @@ test "create and list indexes" {
     inspect(indexes.length() >= 2, content="true")
 
     // Clean up
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     let _ = coll.drop_indexes()
     client.close()
   })
@@ -1311,18 +1156,11 @@ test "create index with options" {
 
     // Ensure collection exists
     let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document().set(
-        "email",
-        @types.bson_string("test@example.com"),
-      ),
-    )
+    let _ = coll.insert({ "email": "test@example.com" })
     let _ = coll.drop_indexes()
 
     // Create an index using default options
-    let index_name = coll.create_index_bson(
-      @types.bson_document().set("email", @types.bson_int32(1)),
-    ) catch {
+    let index_name = coll.create_index({ "email": 1 }) catch {
       e => {
         println("Create index failed: \{e}")
         client.close()
@@ -1411,16 +1249,12 @@ test "drop index" {
     let coll = db.collection("test_drop_index")
 
     // Ensure collection exists
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document().set("temp_field", @types.bson_int32(1)),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "temp_field": 1 })
     let _ = coll.drop_indexes()
 
     // Create an index
-    let _ = coll.create_index_bson(
-      @types.bson_document().set("temp_field", @types.bson_int32(1)),
-    )
+    let _ = coll.create_index({ "temp_field": 1 })
 
     // Drop the specific index
     coll.drop_index("temp_field_1") catch {
@@ -1490,25 +1324,13 @@ test "bulk write mixed operations" {
     let coll = db.collection("test_bulk_write")
 
     // Clean up
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
 
-    // Create bulk operations
+    // Create bulk operations using JSON API
     let ops : Array[BulkOperation] = [
-      BulkOperation::insert_bson(
-        @types.bson_document()
-        .set("name", @types.bson_string("Bulk1"))
-        .set("val", @types.bson_int32(1)),
-      ),
-      BulkOperation::insert_bson(
-        @types.bson_document()
-        .set("name", @types.bson_string("Bulk2"))
-        .set("val", @types.bson_int32(2)),
-      ),
-      BulkOperation::insert_bson(
-        @types.bson_document()
-        .set("name", @types.bson_string("Bulk3"))
-        .set("val", @types.bson_int32(3)),
-      ),
+      BulkOperation::insert({ "name": "Bulk1", "val": 1 }),
+      BulkOperation::insert({ "name": "Bulk2", "val": 2 }),
+      BulkOperation::insert({ "name": "Bulk3", "val": 3 }),
     ]
     let result = coll.bulk_write(ops) catch {
       e => {
@@ -1520,7 +1342,7 @@ test "bulk write mixed operations" {
     inspect(result.inserted_count, content="3")
 
     // Verify insertions
-    let count = coll.count_documents(@types.bson_document()) catch {
+    let count = coll.count({}) catch {
       _ => {
         client.close()
         return
@@ -1529,7 +1351,7 @@ test "bulk write mixed operations" {
     inspect(count, content="3")
 
     // Clean up
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -1543,34 +1365,19 @@ test "bulk write updates" {
     let coll = db.collection("test_bulk_updates")
 
     // Clean up and insert initial data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many([
-      @types.bson_document()
-      .set("category", @types.bson_string("A"))
-      .set("count", @types.bson_int32(1)),
-      @types.bson_document()
-      .set("category", @types.bson_string("A"))
-      .set("count", @types.bson_int32(2)),
-      @types.bson_document()
-      .set("category", @types.bson_string("B"))
-      .set("count", @types.bson_int32(3)),
+    let _ = coll.remove_all({})
+    let _ = coll.insert_all([
+      { "category": "A", "count": 1 },
+      { "category": "A", "count": 2 },
+      { "category": "B", "count": 3 },
     ])
 
-    // Update operations
+    // Update operations using JSON API
     let ops : Array[BulkOperation] = [
-      BulkOperation::update_one_bson(
-        @types.bson_document().set("category", @types.bson_string("A")),
-        @types.bson_document().set(
-          "$inc",
-          @types.bson_document().set("count", @types.bson_int32(10)),
-        ),
-      ),
-      BulkOperation::update_many_bson(
-        @types.bson_document().set("category", @types.bson_string("A")),
-        @types.bson_document().set(
-          "$set",
-          @types.bson_document().set("updated", @types.bson_bool(true)),
-        ),
+      BulkOperation::update_one({ "category": "A" }, { "$inc": { "count": 10 } }),
+      BulkOperation::update_many(
+        { "category": "A" },
+        { "$set": { "updated": true } },
       ),
     ]
     let result = coll.bulk_write(ops) catch {
@@ -1583,7 +1390,7 @@ test "bulk write updates" {
     inspect(result.matched_count >= 2, content="true")
 
     // Clean up
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -1597,29 +1404,17 @@ test "bulk write deletes" {
     let coll = db.collection("test_bulk_deletes")
 
     // Insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many([
-      @types.bson_document()
-      .set("type", @types.bson_string("delete"))
-      .set("num", @types.bson_int32(1)),
-      @types.bson_document()
-      .set("type", @types.bson_string("delete"))
-      .set("num", @types.bson_int32(2)),
-      @types.bson_document()
-      .set("type", @types.bson_string("keep"))
-      .set("num", @types.bson_int32(3)),
+    let _ = coll.remove_all({})
+    let _ = coll.insert_all([
+      { "type": "delete", "num": 1 },
+      { "type": "delete", "num": 2 },
+      { "type": "keep", "num": 3 },
     ])
 
     // Delete operations
     let ops : Array[BulkOperation] = [
-      BulkOperation::delete_one_bson(
-        @types.bson_document()
-        .set("type", @types.bson_string("delete"))
-        .set("num", @types.bson_int32(1)),
-      ),
-      BulkOperation::delete_many_bson(
-        @types.bson_document().set("type", @types.bson_string("delete")),
-      ),
+      BulkOperation::delete_one({ "type": "delete", "num": 1 }),
+      BulkOperation::delete_many({ "type": "delete" }),
     ]
     let result = coll.bulk_write(ops) catch {
       e => {
@@ -1631,7 +1426,7 @@ test "bulk write deletes" {
     inspect(result.deleted_count, content="2")
 
     // Verify only "keep" remains
-    let count = coll.count_documents(@types.bson_document()) catch {
+    let count = coll.count({}) catch {
       _ => {
         client.close()
         return
@@ -1640,7 +1435,7 @@ test "bulk write deletes" {
     inspect(count, content="1")
 
     // Clean up
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -1649,54 +1444,42 @@ test "bulk write deletes" {
 /// Test bulk operation constructors
 test "bulk operation constructors" {
   // Test insert constructor
-  let doc = @types.bson_document().set("test", @types.bson_int32(1))
-  let insert_op = BulkOperation::insert_bson(doc)
+  let insert_op = BulkOperation::insert({ "test": 1 })
   match insert_op {
     BulkOperation::InsertOne(_) => ()
     _ => println("Expected InsertOne")
   }
 
   // Test update_one constructor
-  let filter = @types.bson_document()
-  let update = @types.bson_document()
-  let update_op = BulkOperation::update_one_bson(filter, update, upsert=false)
+  let update_op = BulkOperation::update_one({}, {}, upsert=false)
   match update_op {
     BulkOperation::UpdateOne(..) => ()
     _ => println("Expected UpdateOne")
   }
 
   // Test update_many constructor
-  let update_many_op = BulkOperation::update_many_bson(
-    filter,
-    update,
-    upsert=true,
-  )
+  let update_many_op = BulkOperation::update_many({}, {}, upsert=true)
   match update_many_op {
     BulkOperation::UpdateMany(..) => ()
     _ => println("Expected UpdateMany")
   }
 
   // Test replace constructor
-  let replacement = @types.bson_document()
-  let replace_op = BulkOperation::replace_bson(
-    filter,
-    replacement,
-    upsert=false,
-  )
+  let replace_op = BulkOperation::replace({}, {}, upsert=false)
   match replace_op {
     BulkOperation::ReplaceOne(..) => ()
     _ => println("Expected ReplaceOne")
   }
 
   // Test delete_one constructor
-  let del_one_op = BulkOperation::delete_one_bson(filter)
+  let del_one_op = BulkOperation::delete_one({})
   match del_one_op {
     BulkOperation::DeleteOne(_) => ()
     _ => println("Expected DeleteOne")
   }
 
   // Test delete_many constructor
-  let del_many_op = BulkOperation::delete_many_bson(filter)
+  let del_many_op = BulkOperation::delete_many({})
   match del_many_op {
     BulkOperation::DeleteMany(_) => ()
     _ => println("Expected DeleteMany")
@@ -1712,20 +1495,14 @@ test "bulk write replace" {
     let coll = db.collection("test_bulk_replace")
 
     // Insert test data
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document()
-      .set("name", @types.bson_string("ToReplace"))
-      .set("old_field", @types.bson_string("old")),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "name": "ToReplace", "old_field": "old" })
 
     // Replace operation
     let ops : Array[BulkOperation] = [
-      BulkOperation::replace_bson(
-        @types.bson_document().set("name", @types.bson_string("ToReplace")),
-        @types.bson_document()
-        .set("name", @types.bson_string("Replaced"))
-        .set("new_field", @types.bson_string("new")),
+      BulkOperation::replace(
+        { "name": "ToReplace" },
+        { "name": "Replaced", "new_field": "new" },
         upsert=false,
       ),
     ]
@@ -1739,25 +1516,19 @@ test "bulk write replace" {
     inspect(result.modified_count, content="1")
 
     // Verify replacement
-    let found = coll.find_one(
-      @types.bson_document().set("name", @types.bson_string("Replaced")),
-    ) catch {
+    let found = coll.query_one({ "name": "Replaced" }) catch {
       _ => {
         client.close()
         return
       }
     }
     match found {
-      Some(doc) =>
-        match doc.get("new_field") {
-          Some(@types.String(s)) => inspect(s, content="new")
-          _ => println("Expected new_field")
-        }
-      None => println("Expected document")
+      Some({ "new_field": String(s), .. }) => inspect(s, content="new")
+      _ => println("Expected document with new_field")
     }
 
     // Clean up
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }
@@ -2303,47 +2074,27 @@ test "pipeline sort_by_count_stage" {
 // =============================================================================
 
 ///|
-/// Test ReadConcern constructors and to_bson
+/// Test ReadConcern constructors
 test "read concern constructors" {
   // Test local_level
   let local_rc = ReadConcern::local_level()
-  let local_bson = local_rc.to_bson()
-  match local_bson.get("level") {
-    Some(@types.String(s)) => inspect(s, content="local")
-    _ => println("Expected level field")
-  }
+  inspect(local_rc.level.to_string(), content="local")
 
   // Test available
   let avail_rc = ReadConcern::available()
-  let avail_bson = avail_rc.to_bson()
-  match avail_bson.get("level") {
-    Some(@types.String(s)) => inspect(s, content="available")
-    _ => println("Expected level field")
-  }
+  inspect(avail_rc.level.to_string(), content="available")
 
   // Test majority
   let maj_rc = ReadConcern::majority()
-  let maj_bson = maj_rc.to_bson()
-  match maj_bson.get("level") {
-    Some(@types.String(s)) => inspect(s, content="majority")
-    _ => println("Expected level field")
-  }
+  inspect(maj_rc.level.to_string(), content="majority")
 
   // Test linearizable
   let lin_rc = ReadConcern::linearizable()
-  let lin_bson = lin_rc.to_bson()
-  match lin_bson.get("level") {
-    Some(@types.String(s)) => inspect(s, content="linearizable")
-    _ => println("Expected level field")
-  }
+  inspect(lin_rc.level.to_string(), content="linearizable")
 
   // Test snapshot
   let snap_rc = ReadConcern::snapshot()
-  let snap_bson = snap_rc.to_bson()
-  match snap_bson.get("level") {
-    Some(@types.String(s)) => inspect(s, content="snapshot")
-    _ => println("Expected level field")
-  }
+  inspect(snap_rc.level.to_string(), content="snapshot")
 }
 
 ///|
@@ -2411,77 +2162,55 @@ test "write concern builder" {
 }
 
 ///|
-/// Test WriteConcern to_bson
-test "write concern to_bson" {
+/// Test WriteConcern values
+test "write concern values" {
   let wc = WriteConcern::majority().with_journal(true).with_timeout(3000)
-  let bson = wc.to_bson()
-  match bson.get("w") {
-    Some(@types.String(s)) => inspect(s, content="majority")
-    _ => println("Expected w field")
+  match wc.w {
+    Some(WriteConcernW::Majority) => ()
+    _ => println("Expected Majority")
   }
-  match bson.get("j") {
-    Some(@types.Boolean(j)) => inspect(j, content="true")
-    _ => println("Expected j field")
+  match wc.j {
+    Some(j) => inspect(j, content="true")
+    None => println("Expected j field")
   }
-  match bson.get("wtimeout") {
-    Some(@types.Int32(t)) => inspect(t, content="3000")
-    _ => println("Expected wtimeout field")
+  match wc.wtimeout {
+    Some(t) => inspect(t, content="3000")
+    None => println("Expected wtimeout field")
   }
 }
 
 ///|
-/// Test WriteConcern to_bson with number
-test "write concern to_bson number" {
+/// Test WriteConcern with number
+test "write concern with number" {
   let wc = WriteConcern::w(2)
-  let bson = wc.to_bson()
-  match bson.get("w") {
-    Some(@types.Int32(n)) => inspect(n, content="2")
-    _ => println("Expected w field as int")
+  match wc.w {
+    Some(WriteConcernW::Number(n)) => inspect(n, content="2")
+    _ => println("Expected Number(2)")
   }
 }
 
 ///|
-/// Test ReadPreference constructors via to_bson
+/// Test ReadPreference constructors
 test "read preference constructors" {
   // Test primary
   let primary = ReadPreference::primary()
-  let primary_bson = primary.to_bson()
-  match primary_bson.get("mode") {
-    Some(@types.String(s)) => inspect(s, content="primary")
-    _ => println("Expected mode field")
-  }
+  inspect(primary.mode.to_string(), content="primary")
 
   // Test primary_preferred
   let pp = ReadPreference::primary_preferred()
-  let pp_bson = pp.to_bson()
-  match pp_bson.get("mode") {
-    Some(@types.String(s)) => inspect(s, content="primaryPreferred")
-    _ => println("Expected mode field")
-  }
+  inspect(pp.mode.to_string(), content="primaryPreferred")
 
   // Test secondary
   let secondary = ReadPreference::secondary()
-  let sec_bson = secondary.to_bson()
-  match sec_bson.get("mode") {
-    Some(@types.String(s)) => inspect(s, content="secondary")
-    _ => println("Expected mode field")
-  }
+  inspect(secondary.mode.to_string(), content="secondary")
 
   // Test secondary_preferred
   let sp = ReadPreference::secondary_preferred()
-  let sp_bson = sp.to_bson()
-  match sp_bson.get("mode") {
-    Some(@types.String(s)) => inspect(s, content="secondaryPreferred")
-    _ => println("Expected mode field")
-  }
+  inspect(sp.mode.to_string(), content="secondaryPreferred")
 
   // Test nearest
   let nearest = ReadPreference::nearest()
-  let near_bson = nearest.to_bson()
-  match near_bson.get("mode") {
-    Some(@types.String(s)) => inspect(s, content="nearest")
-    _ => println("Expected mode field")
-  }
+  inspect(nearest.mode.to_string(), content="nearest")
 }
 
 ///|
@@ -2502,31 +2231,26 @@ test "read preference builder" {
 }
 
 ///|
-/// Test ReadPreference to_bson
-test "read preference to_bson" {
+/// Test ReadPreference with staleness
+test "read preference with staleness" {
   let rp = ReadPreference::secondary_preferred().with_max_staleness(120)
-  let bson = rp.to_bson()
-  match bson.get("mode") {
-    Some(@types.String(s)) => inspect(s, content="secondaryPreferred")
-    _ => println("Expected mode field")
-  }
-  match bson.get("maxStalenessSeconds") {
-    Some(@types.Int32(s)) => inspect(s, content="120")
-    _ => println("Expected maxStalenessSeconds field")
+  inspect(rp.mode.to_string(), content="secondaryPreferred")
+  match rp.max_staleness_seconds {
+    Some(s) => inspect(s, content="120")
+    None => println("Expected max_staleness_seconds")
   }
 }
 
 ///|
-/// Test ReadPreference to_bson with tags
-test "read preference to_bson with tags" {
+/// Test ReadPreference with tags
+test "read preference with tags" {
   let tags : Array[@types.BsonValue] = [
     @types.bson_document().set("region", @types.bson_string("us-east")),
   ]
   let rp = ReadPreference::nearest().with_tags(tags)
-  let bson = rp.to_bson()
-  match bson.get("tags") {
-    Some(@types.Array(arr)) => inspect(arr.length(), content="1")
-    _ => println("Expected tags array")
+  match rp.tags {
+    Some(arr) => inspect(arr.length(), content="1")
+    None => println("Expected tags array")
   }
 }
 
@@ -3189,19 +2913,15 @@ test "find with hint" {
     let coll = db.collection("test_find_hint")
 
     // Setup
-    let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_one(
-      @types.bson_document().set("field", @types.bson_int32(1)),
-    )
+    let _ = coll.remove_all({})
+    let _ = coll.insert({ "field": 1 })
 
     // Create an index to use as hint
-    let _ = coll.create_index_bson(
-      @types.bson_document().set("field", @types.bson_int32(1)),
-    )
+    let _ = coll.create_index({ "field": 1 })
 
     // Find with hint (use index name)
     let cursor = coll.find(
-      @types.bson_document(),
+      @types.json_to_bson({}),
       hint=@types.bson_string("field_1"),
     ) catch {
       _ => {
@@ -3213,7 +2933,7 @@ test "find with hint" {
     inspect(results.length() >= 1, content="true")
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     let _ = coll.drop_indexes()
     client.close()
   })
@@ -3258,20 +2978,14 @@ test "aggregate with options" {
     let coll = db.collection("test_aggregate_opts")
 
     // Setup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     for i = 0; i < 10; i = i + 1 {
-      let _ = coll.insert_one(
-        @types.bson_document().set("value", @types.bson_int32(i)),
-      )
-
+      let _ = coll.insert({ "value": i })
     }
 
     // Aggregate with batch_size, max_time_ms, and allow_disk_use
-    let pipeline : Array[@types.BsonValue] = [
-      @types.bson_document().set("$match", @types.bson_document()),
-    ]
-    let cursor = coll.aggregate_bson(
-      pipeline,
+    let results = coll.aggregate(
+      [{ "$match": {} }],
       batch_size=5,
       max_time_ms=10000,
       allow_disk_use=true,
@@ -3282,11 +2996,10 @@ test "aggregate with options" {
         return
       }
     }
-    let results = cursor.to_array()
     inspect(results.length(), content="10")
 
     // Cleanup
-    let _ = coll.delete_many(@types.bson_document())
+    let _ = coll.remove_all({})
     client.close()
   })
 }

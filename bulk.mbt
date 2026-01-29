@@ -31,12 +31,6 @@ pub fn BulkOperation::insert(doc : Json) -> BulkOperation {
 }
 
 ///|
-/// Create an insert operation (BSON API)
-pub fn BulkOperation::insert_bson(doc : @types.BsonValue) -> BulkOperation {
-  InsertOne(doc)
-}
-
-///|
 /// Create an update one operation (JSON API)
 pub fn BulkOperation::update_one(
   filter : Json,
@@ -48,16 +42,6 @@ pub fn BulkOperation::update_one(
     update=@types.json_to_bson(update),
     upsert~,
   )
-}
-
-///|
-/// Create an update one operation (BSON API)
-pub fn BulkOperation::update_one_bson(
-  filter : @types.BsonValue,
-  update : @types.BsonValue,
-  upsert? : Bool = false,
-) -> BulkOperation {
-  UpdateOne(filter~, update~, upsert~)
 }
 
 ///|
@@ -75,16 +59,6 @@ pub fn BulkOperation::update_many(
 }
 
 ///|
-/// Create an update many operation (BSON API)
-pub fn BulkOperation::update_many_bson(
-  filter : @types.BsonValue,
-  update : @types.BsonValue,
-  upsert? : Bool = false,
-) -> BulkOperation {
-  UpdateMany(filter~, update~, upsert~)
-}
-
-///|
 /// Create a replace operation (JSON API)
 pub fn BulkOperation::replace(
   filter : Json,
@@ -99,41 +73,15 @@ pub fn BulkOperation::replace(
 }
 
 ///|
-/// Create a replace operation (BSON API)
-pub fn BulkOperation::replace_bson(
-  filter : @types.BsonValue,
-  replacement : @types.BsonValue,
-  upsert? : Bool = false,
-) -> BulkOperation {
-  ReplaceOne(filter~, replacement~, upsert~)
-}
-
-///|
 /// Create a delete one operation (JSON API)
 pub fn BulkOperation::delete_one(filter : Json) -> BulkOperation {
   DeleteOne(@types.json_to_bson(filter))
 }
 
 ///|
-/// Create a delete one operation (BSON API)
-pub fn BulkOperation::delete_one_bson(
-  filter : @types.BsonValue,
-) -> BulkOperation {
-  DeleteOne(filter)
-}
-
-///|
 /// Create a delete many operation (JSON API)
 pub fn BulkOperation::delete_many(filter : Json) -> BulkOperation {
   DeleteMany(@types.json_to_bson(filter))
-}
-
-///|
-/// Create a delete many operation (BSON API)
-pub fn BulkOperation::delete_many_bson(
-  filter : @types.BsonValue,
-) -> BulkOperation {
-  DeleteMany(filter)
 }
 
 ///|
