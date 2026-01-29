@@ -23,8 +23,20 @@ Add to your `moon.mod.json`:
 ```json
 {
   "deps": {
-    "allain/mongodb": "0.1.0"
+    "allain/mongodb": "0.1.0",
+    "moonbitlang/async": "0.2.1"
   }
+}
+```
+
+Add to your `moon.pkg.json`:
+
+```json
+{
+  "import": [
+    "allain/mongodb",
+    "moonbitlang/async"
+  ]
 }
 ```
 
@@ -177,6 +189,8 @@ let results = users.aggregate_json([
 
 ### Index Management
 
+Index operations use the BSON API. Add `"allain/mongodb/types"` to your imports:
+
 ```moonbit
 // Create a simple index
 users.create_index(@types.bson_document().set("email", @types.bson_int32(1)))!
@@ -219,10 +233,13 @@ users.drop_index("email_1")!
 
 ### Bulk Operations
 
+Bulk operations use the BSON API. Add `"allain/mongodb/types"` to your imports:
+
 ```moonbit
+// Convert JSON to BSON for bulk operations
 let operations = [
-  @mongodb.BulkOperation::insert({ "name": "User1" }),
-  @mongodb.BulkOperation::insert({ "name": "User2" }),
+  @mongodb.BulkOperation::insert(@types.json_to_bson({ "name": "User1" })),
+  @mongodb.BulkOperation::insert(@types.json_to_bson({ "name": "User2" })),
   @mongodb.BulkOperation::update_one(
     @types.json_to_bson({ "name": "Alice" }),
     @types.json_to_bson({ "$set": { "updated": true } }),
@@ -237,6 +254,8 @@ println("Inserted: \{result.inserted_count}, Modified: \{result.modified_count}"
 ```
 
 ### Change Streams
+
+Change streams return BSON values. Add `"allain/mongodb/types"` to your imports for pattern matching:
 
 ```moonbit
 // Watch for changes on a collection
@@ -281,9 +300,9 @@ let stats = db.stats()!
 Query results are JSON values that can be pattern matched:
 
 ```moonbit
-let users = coll.query({})!
+let results = users.query({})!
 
-for user in users {
+for user in results {
   match user {
     { "name": String(name), "age": Number(age, ..), .. } =>
       println("\{name} is \{age.to_int()} years old")
@@ -328,8 +347,7 @@ for user in users {
 ### Error Handling
 
 ```moonbit
-///|
-let result = coll.insert({ "name": "Alice" }) catch {
+let result = users.insert({ "name": "Alice" }) catch {
   @mongodb.MongoError::ConnectionFailed(msg) => {
     println("Connection failed: \{msg}")
     return
@@ -364,7 +382,7 @@ Special types are represented using MongoDB Extended JSON:
 
 ```moonbit
 // Query by ObjectId
-let user = coll.query_one({ "_id": { "$oid": "507f1f77bcf86cd799439011" } })!
+let user = users.query_one({ "_id": { "$oid": "507f1f77bcf86cd799439011" } })!
 ```
 
 ## Requirements
