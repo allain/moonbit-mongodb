@@ -22,10 +22,9 @@ pub fn PoolOptions::default() -> PoolOptions {
 }
 
 ///|
-/// A pooled connection
-pub struct PooledConnection {
-  conn : AsyncConnection
-  mut last_used : Int64
+/// A pooled connection (internal)
+struct PooledConnection {
+  conn : Connection
   mut in_use : Bool
 }
 
@@ -59,27 +58,26 @@ pub fn ConnectionPool::new(
 /// Acquire a connection from the pool
 pub async fn ConnectionPool::acquire(
   self : ConnectionPool,
-) -> PooledConnection raise AsyncConnectionError {
+) -> PooledConnection raise MongoError {
   // Look for an available connection
   for conn in self.connections {
     if not(conn.in_use) {
       conn.in_use = true
-      conn.last_used = 0L // Would use current timestamp
       return conn
     }
   }
 
   // Create a new connection if under max
   if self.size < self.options.max_pool_size {
-    let conn = AsyncConnection::connect(self.host, self.port)
-    let pooled = { conn, last_used: 0L, in_use: true }
+    let conn = Connection::connect(self.host, self.port)
+    let pooled = { conn, in_use: true }
     self.connections.push(pooled)
     self.size = self.size + 1
     return pooled
   }
 
   // Pool exhausted - in a real implementation, we'd wait
-  raise AsyncConnectionError::ConnectionFailed("Connection pool exhausted")
+  raise MongoError::ConnectionFailed("Connection pool exhausted")
 }
 
 ///|
@@ -89,7 +87,6 @@ pub fn ConnectionPool::release(
   conn : PooledConnection,
 ) -> Unit {
   conn.in_use = false
-  conn.last_used = 0L // Would use current timestamp
   ignore(self)
 }
 
@@ -131,8 +128,8 @@ pub fn ConnectionPool::in_use_count(self : ConnectionPool) -> Int {
 /// Execute an operation with a pooled connection
 pub async fn[T] ConnectionPool::with_connection(
   self : ConnectionPool,
-  operation : async (AsyncConnection) -> T raise AsyncConnectionError,
-) -> T raise AsyncConnectionError {
+  operation : async (Connection) -> T raise MongoError,
+) -> T raise MongoError {
   let pooled = self.acquire()
   let result = operation(pooled.conn) catch {
     err => {

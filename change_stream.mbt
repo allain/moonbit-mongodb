@@ -26,17 +26,17 @@ pub fn ChangeStreamOptions::default() -> ChangeStreamOptions {
 ///|
 /// Change stream for watching collection/database/client changes
 pub struct ChangeStream {
-  cursor : AsyncCursor
+  cursor : Cursor
   mut resume_token : @types.BsonValue?
 }
 
 ///|
 /// Create a change stream on a collection
-pub async fn AsyncCollection::watch(
-  self : AsyncCollection,
+pub async fn Collection::watch(
+  self : Collection,
   pipeline? : Array[@types.BsonValue],
   options? : ChangeStreamOptions,
-) -> ChangeStream raise AsyncConnectionError {
+) -> ChangeStream raise MongoError {
   let opts = options.unwrap_or(ChangeStreamOptions::default())
   let pipeline_arr = @types.bson_array()
 
@@ -75,18 +75,15 @@ pub async fn AsyncCollection::watch(
     Some(b) => cursor_opts.set("batchSize", @types.bson_int32(b))
     None => cursor_opts
   }
-
   let cmd = @types.bson_document()
     .set("aggregate", @types.bson_string(self.name))
     .set("pipeline", pipeline_arr)
     .set("cursor", cursor_opts)
     .set("$db", @types.bson_string(self.db.name))
-
   let cmd = match opts.max_await_time_ms {
     Some(t) => cmd.set("maxAwaitTimeMS", @types.bson_int32(t))
     None => cmd
   }
-
   let response = self.db.client.conn.send_command(cmd)
   check_command_response(response)
 
@@ -103,13 +100,11 @@ pub async fn AsyncCollection::watch(
         _ => []
       }
       let resume_token = cursor_map.get("postBatchResumeToken")
-      let cursor = AsyncCursor::new(self, docs, cursor_id)
+      let cursor = Cursor::new(self, docs, cursor_id)
       { cursor, resume_token }
     }
     _ =>
-      raise AsyncConnectionError::InvalidResponse(
-        "No cursor in change stream response",
-      )
+      raise MongoError::InvalidResponse("No cursor in change stream response")
   }
 }
 
@@ -117,7 +112,7 @@ pub async fn AsyncCollection::watch(
 /// Get the next change event
 pub async fn ChangeStream::next(
   self : ChangeStream,
-) -> @types.BsonValue? raise AsyncConnectionError {
+) -> @types.BsonValue? raise MongoError {
   // Try to get from current batch
   match self.cursor.next() {
     Some(doc) => {
@@ -128,7 +123,7 @@ pub async fn ChangeStream::next(
       }
       Some(doc)
     }
-    None => {
+    None =>
       // Need to get more
       if self.cursor.is_exhausted() {
         None
@@ -145,7 +140,6 @@ pub async fn ChangeStream::next(
           None => None
         }
       }
-    }
   }
 }
 
@@ -166,13 +160,10 @@ pub async fn ChangeStream::close(self : ChangeStream) -> Unit {
 pub async fn ChangeStream::for_each(
   self : ChangeStream,
   f : (@types.BsonValue) -> Bool, // Return false to stop
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   while true {
     match self.next() {
-      Some(doc) =>
-        if not(f(doc)) {
-          break
-        }
+      Some(doc) => if not(f(doc)) { break }
       None =>
         // No more events available right now
         // In a real implementation, we'd wait for more
@@ -183,11 +174,11 @@ pub async fn ChangeStream::for_each(
 
 ///|
 /// Watch changes on a database
-pub async fn AsyncDatabase::watch(
-  self : AsyncDatabase,
+pub async fn Database::watch(
+  self : Database,
   pipeline? : Array[@types.BsonValue],
   options? : ChangeStreamOptions,
-) -> ChangeStream raise AsyncConnectionError {
+) -> ChangeStream raise MongoError {
   let opts = options.unwrap_or(ChangeStreamOptions::default())
   let pipeline_arr = @types.bson_array()
 
@@ -215,17 +206,14 @@ pub async fn AsyncDatabase::watch(
       }
     None => ()
   }
-
   let cursor_opts = @types.bson_document()
   let cmd = @types.bson_document()
     .set("aggregate", @types.bson_int32(1))
     .set("pipeline", pipeline_arr)
     .set("cursor", cursor_opts)
     .set("$db", @types.bson_string(self.name))
-
   let response = self.client.conn.send_command(cmd)
   check_command_response(response)
-
   match response.get("cursor") {
     Some(@types.Document(cursor_map)) => {
       let cursor_id = match cursor_map.get("id") {
@@ -240,12 +228,10 @@ pub async fn AsyncDatabase::watch(
       let resume_token = cursor_map.get("postBatchResumeToken")
       // Create a dummy collection for the cursor
       let coll = self.collection("$cmd.aggregate")
-      let cursor = AsyncCursor::new(coll, docs, cursor_id)
+      let cursor = Cursor::new(coll, docs, cursor_id)
       { cursor, resume_token }
     }
     _ =>
-      raise AsyncConnectionError::InvalidResponse(
-        "No cursor in change stream response",
-      )
+      raise MongoError::InvalidResponse("No cursor in change stream response")
   }
 }

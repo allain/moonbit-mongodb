@@ -36,11 +36,11 @@ pub struct IndexInfo {
 
 ///|
 /// Create a single index
-pub async fn AsyncCollection::create_index(
-  self : AsyncCollection,
+pub async fn Collection::create_index(
+  self : Collection,
   keys : @types.BsonValue,
   options? : IndexOptions,
-) -> String raise AsyncConnectionError {
+) -> String raise MongoError {
   let index_doc = @types.bson_document().set("key", keys)
   let opts = options.unwrap_or(IndexOptions::default())
   let index_doc = match opts.name {
@@ -104,10 +104,10 @@ pub fn IndexSpec::new(
 
 ///|
 /// Create multiple indexes
-pub async fn AsyncCollection::create_indexes(
-  self : AsyncCollection,
+pub async fn Collection::create_indexes(
+  self : Collection,
   indexes : Array[IndexSpec],
-) -> Array[String] raise AsyncConnectionError {
+) -> Array[String] raise MongoError {
   let indexes_array = @types.bson_array()
   let names : Array[String] = []
   for index in indexes {
@@ -149,10 +149,10 @@ pub async fn AsyncCollection::create_indexes(
 
 ///|
 /// Drop a single index by name
-pub async fn AsyncCollection::drop_index(
-  self : AsyncCollection,
+pub async fn Collection::drop_index(
+  self : Collection,
   name : String,
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   let cmd = @types.bson_document()
     .set("dropIndexes", @types.bson_string(self.name))
     .set("index", @types.bson_string(name))
@@ -163,9 +163,9 @@ pub async fn AsyncCollection::drop_index(
 
 ///|
 /// Drop all indexes except _id
-pub async fn AsyncCollection::drop_indexes(
-  self : AsyncCollection,
-) -> Unit raise AsyncConnectionError {
+pub async fn Collection::drop_indexes(
+  self : Collection,
+) -> Unit raise MongoError {
   let cmd = @types.bson_document()
     .set("dropIndexes", @types.bson_string(self.name))
     .set("index", @types.bson_string("*"))
@@ -176,9 +176,9 @@ pub async fn AsyncCollection::drop_indexes(
 
 ///|
 /// List all indexes on a collection
-pub async fn AsyncCollection::list_indexes(
-  self : AsyncCollection,
-) -> Array[IndexInfo] raise AsyncConnectionError {
+pub async fn Collection::list_indexes(
+  self : Collection,
+) -> Array[IndexInfo] raise MongoError {
   let cmd = @types.bson_document()
     .set("listIndexes", @types.bson_string(self.name))
     .set("$db", @types.bson_string(self.db.name))

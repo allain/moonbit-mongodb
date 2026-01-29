@@ -1,7 +1,0 @@
-{
-  "is-main": true,
-  "import": [
-    "allain/mongodb/async_client",
-    "moonbitlang/async"
-  ]
-}

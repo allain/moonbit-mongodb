@@ -1,15 +1,13 @@
 ///|
-/// Async MongoDB connection using TCP
-pub struct AsyncConnection {
+/// Async MongoDB connection using TCP (internal)
+struct Connection {
   tcp : @socket.TCP
   mut request_id : Int
-  host : String
-  port : Int
 }
 
 ///|
 /// Connection errors
-pub suberror AsyncConnectionError {
+pub suberror MongoError {
   ConnectionFailed(String)
   SendFailed(String)
   ReceiveFailed(String)
@@ -22,7 +20,7 @@ pub suberror AsyncConnectionError {
 }
 
 ///|
-pub impl Show for AsyncConnectionError with output(self, logger) {
+pub impl Show for MongoError with output(self, logger) {
   match self {
     ConnectionFailed(msg) => logger.write_string("ConnectionFailed: \{msg}")
     SendFailed(msg) => logger.write_string("SendFailed: \{msg}")
@@ -37,27 +35,24 @@ pub impl Show for AsyncConnectionError with output(self, logger) {
 }
 
 ///|
-/// Create a new async connection and connect to MongoDB
-pub async fn AsyncConnection::connect(
+/// Create a new async connection and connect to MongoDB (internal)
+async fn Connection::connect(
   host : String,
   port : Int,
-) -> AsyncConnection raise AsyncConnectionError {
+) -> Connection raise MongoError {
   let tcp = @socket.TCP::new()
 
   // Parse address
   let addr_str = "\{host}:\{port}"
   let addr = @socket.Addr::parse(addr_str) catch {
-    _ =>
-      raise AsyncConnectionError::ConnectionFailed(
-        "Invalid address: \{addr_str}",
-      )
+    _ => raise MongoError::ConnectionFailed("Invalid address: \{addr_str}")
   }
 
   // Connect
   tcp.connect(addr) catch {
-    e => raise AsyncConnectionError::ConnectionFailed("Failed to connect: \{e}")
+    e => raise MongoError::ConnectionFailed("Failed to connect: \{e}")
   }
-  let conn : AsyncConnection = { tcp, request_id: 1, host, port }
+  let conn : Connection = { tcp, request_id: 1 }
 
   // Perform handshake
   conn.handshake()
@@ -65,8 +60,8 @@ pub async fn AsyncConnection::connect(
 }
 
 ///|
-/// Get next request ID
-pub fn AsyncConnection::next_request_id(self : AsyncConnection) -> Int {
+/// Get next request ID (internal)
+fn Connection::next_request_id(self : Connection) -> Int {
   let id = self.request_id
   self.request_id = self.request_id + 1
   id
@@ -74,9 +69,7 @@ pub fn AsyncConnection::next_request_id(self : AsyncConnection) -> Int {
 
 ///|
 /// Perform MongoDB handshake (hello command)
-async fn AsyncConnection::handshake(
-  self : AsyncConnection,
-) -> Unit raise AsyncConnectionError {
+async fn Connection::handshake(self : Connection) -> Unit raise MongoError {
   let hello_cmd = @types.bson_document()
     .set("hello", @types.bson_int32(1))
     .set("$db", @types.bson_string("admin"))
@@ -86,22 +79,22 @@ async fn AsyncConnection::handshake(
   match response.get("ok") {
     Some(@types.Double(v)) =>
       if v != 1.0 {
-        raise AsyncConnectionError::HandshakeFailed("Server returned ok: \{v}")
+        raise MongoError::HandshakeFailed("Server returned ok: \{v}")
       }
     Some(@types.Int32(v)) =>
       if v != 1 {
-        raise AsyncConnectionError::HandshakeFailed("Server returned ok: \{v}")
+        raise MongoError::HandshakeFailed("Server returned ok: \{v}")
       }
-    _ => raise AsyncConnectionError::HandshakeFailed("No ok field in response")
+    _ => raise MongoError::HandshakeFailed("No ok field in response")
   }
 }
 
 ///|
-/// Send a command and receive the response
-pub async fn AsyncConnection::send_command(
-  self : AsyncConnection,
+/// Send a command and receive the response (internal)
+async fn Connection::send_command(
+  self : Connection,
   command : @types.BsonValue,
-) -> @types.BsonValue raise AsyncConnectionError {
+) -> @types.BsonValue raise MongoError {
   let request_id = self.next_request_id()
 
   // Create OpMsg
@@ -109,43 +102,32 @@ pub async fn AsyncConnection::send_command(
 
   // Encode to bytes
   let msg_bytes = msg.encode() catch {
-    e =>
-      raise AsyncConnectionError::ProtocolError(
-        "Failed to encode message: \{e}",
-      )
+    e => raise MongoError::ProtocolError("Failed to encode message: \{e}")
   }
 
   // Send the message
   self.tcp.send(msg_bytes) catch {
-    e => raise AsyncConnectionError::SendFailed("Failed to send: \{e}")
+    e => raise MongoError::SendFailed("Failed to send: \{e}")
   }
 
   // Receive the response header (16 bytes)
   let header_bytes = self.tcp.recv_exactly(16) catch {
-    @socket.ConnectionClosed => raise AsyncConnectionError::Closed
-    e =>
-      raise AsyncConnectionError::ReceiveFailed(
-        "Failed to receive header: \{e}",
-      )
+    @socket.ConnectionClosed => raise MongoError::Closed
+    e => raise MongoError::ReceiveFailed("Failed to receive header: \{e}")
   }
 
   // Parse header to get message length
   let msg_length = @wire.read_int32_le(header_bytes, 0)
   if msg_length < 16 {
-    raise AsyncConnectionError::ProtocolError(
-      "Invalid message length: \{msg_length}",
-    )
+    raise MongoError::ProtocolError("Invalid message length: \{msg_length}")
   }
 
   // Receive the rest of the message
   let remaining_len = msg_length - 16
   let body_bytes = if remaining_len > 0 {
     self.tcp.recv_exactly(remaining_len) catch {
-      @socket.ConnectionClosed => raise AsyncConnectionError::Closed
-      e =>
-        raise AsyncConnectionError::ReceiveFailed(
-          "Failed to receive body: \{e}",
-        )
+      @socket.ConnectionClosed => raise MongoError::Closed
+      e => raise MongoError::ReceiveFailed("Failed to receive body: \{e}")
     }
   } else {
     Bytes::new(0)
@@ -156,22 +138,19 @@ pub async fn AsyncConnection::send_command(
 
   // Parse the response
   let response_msg = @wire.OpMsg::decode(full_msg) catch {
-    e =>
-      raise AsyncConnectionError::ProtocolError(
-        "Failed to decode response: \{e}",
-      )
+    e => raise MongoError::ProtocolError("Failed to decode response: \{e}")
   }
 
   // Extract the body document
   match response_msg.body() {
     Some(doc) => doc
-    None => raise AsyncConnectionError::InvalidResponse("No body in response")
+    None => raise MongoError::InvalidResponse("No body in response")
   }
 }
 
 ///|
-/// Close the connection
-pub fn AsyncConnection::close(self : AsyncConnection) -> Unit {
+/// Close the connection (internal)
+fn Connection::close(self : Connection) -> Unit {
   self.tcp.close()
 }
 

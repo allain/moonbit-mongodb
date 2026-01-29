@@ -140,7 +140,10 @@ pub fn WriteConcern::with_tag(tag : String) -> WriteConcern {
 
 ///|
 /// Set journal option
-pub fn WriteConcern::with_journal(self : WriteConcern, j : Bool) -> WriteConcern {
+pub fn WriteConcern::with_journal(
+  self : WriteConcern,
+  j : Bool,
+) -> WriteConcern {
   { w: self.w, j: Some(j), wtimeout: self.wtimeout }
 }
 
@@ -246,7 +249,11 @@ pub fn ReadPreference::with_tags(
   self : ReadPreference,
   tags : Array[@types.BsonValue],
 ) -> ReadPreference {
-  { mode: self.mode, tags: Some(tags), max_staleness_seconds: self.max_staleness_seconds }
+  {
+    mode: self.mode,
+    tags: Some(tags),
+    max_staleness_seconds: self.max_staleness_seconds,
+  }
 }
 
 ///|

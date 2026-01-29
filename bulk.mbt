@@ -8,17 +8,17 @@ pub enum BulkOperation {
   UpdateOne(
     filter~ : @types.BsonValue,
     update~ : @types.BsonValue,
-    upsert~ : Bool,
+    upsert~ : Bool
   )
   UpdateMany(
     filter~ : @types.BsonValue,
     update~ : @types.BsonValue,
-    upsert~ : Bool,
+    upsert~ : Bool
   )
   ReplaceOne(
     filter~ : @types.BsonValue,
     replacement~ : @types.BsonValue,
-    upsert~ : Bool,
+    upsert~ : Bool
   )
   DeleteOne(@types.BsonValue)
   DeleteMany(@types.BsonValue)
@@ -35,7 +35,7 @@ pub fn BulkOperation::insert(doc : @types.BsonValue) -> BulkOperation {
 pub fn BulkOperation::update_one(
   filter : @types.BsonValue,
   update : @types.BsonValue,
-  upsert~ : Bool = false,
+  upsert? : Bool = false,
 ) -> BulkOperation {
   UpdateOne(filter~, update~, upsert~)
 }
@@ -45,7 +45,7 @@ pub fn BulkOperation::update_one(
 pub fn BulkOperation::update_many(
   filter : @types.BsonValue,
   update : @types.BsonValue,
-  upsert~ : Bool = false,
+  upsert? : Bool = false,
 ) -> BulkOperation {
   UpdateMany(filter~, update~, upsert~)
 }
@@ -55,7 +55,7 @@ pub fn BulkOperation::update_many(
 pub fn BulkOperation::replace(
   filter : @types.BsonValue,
   replacement : @types.BsonValue,
-  upsert~ : Bool = false,
+  upsert? : Bool = false,
 ) -> BulkOperation {
   ReplaceOne(filter~, replacement~, upsert~)
 }
@@ -85,11 +85,11 @@ pub struct BulkWriteResult {
 
 ///|
 /// Execute bulk write operations
-pub async fn AsyncCollection::bulk_write(
-  self : AsyncCollection,
+pub async fn Collection::bulk_write(
+  self : Collection,
   operations : Array[BulkOperation],
   ordered? : Bool,
-) -> BulkWriteResult raise AsyncConnectionError {
+) -> BulkWriteResult raise MongoError {
   let is_ordered = ordered.unwrap_or(true)
   let mut inserted_count = 0
   let mut matched_count = 0
@@ -102,7 +102,6 @@ pub async fn AsyncCollection::bulk_write(
   let inserts : Array[@types.BsonValue] = []
   let updates : Array[@types.BsonValue] = []
   let deletes : Array[@types.BsonValue] = []
-
   for i, op in operations {
     match op {
       InsertOne(doc) => inserts.push(doc)
@@ -191,12 +190,11 @@ pub async fn AsyncCollection::bulk_write(
         upserted_count = arr.length()
         for item in arr {
           match item {
-            @types.Document(doc) => {
+            @types.Document(doc) =>
               match (doc.get("index"), doc.get("_id")) {
                 (Some(@types.Int32(idx)), Some(id)) => upserted_ids[idx] = id
                 _ => ()
               }
-            }
             _ => ()
           }
         }
@@ -223,7 +221,6 @@ pub async fn AsyncCollection::bulk_write(
       _ => ()
     }
   }
-
   {
     inserted_count,
     matched_count,

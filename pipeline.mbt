@@ -52,18 +52,14 @@ pub fn lookup_stage(
   foreign_field : String,
   as_ : String,
 ) -> Json {
-  Json::object(
-    {
-      "$lookup": Json::object(
-        {
-          "from": Json::string(from),
-          "localField": Json::string(local_field),
-          "foreignField": Json::string(foreign_field),
-          "as": Json::string(as_),
-        },
-      ),
-    },
-  )
+  Json::object({
+    "$lookup": Json::object({
+      "from": Json::string(from),
+      "localField": Json::string(local_field),
+      "foreignField": Json::string(foreign_field),
+      "as": Json::string(as_),
+    }),
+  })
 }
 
 ///|
@@ -134,9 +130,9 @@ pub fn replace_with_stage(replacement : Json) -> Json {
 ///|
 /// Create a $sample stage to randomly select documents
 pub fn sample_stage(size : Int) -> Json {
-  Json::object(
-    { "$sample": Json::object({ "size": Json::number(size.to_double()) }) },
-  )
+  Json::object({
+    "$sample": Json::object({ "size": Json::number(size.to_double()) }),
+  })
 }
 
 ///|

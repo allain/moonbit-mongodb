@@ -7,7 +7,7 @@
 /// ```moonbit
 /// async fn example() {
 ///   // Connect to MongoDB
-///   let client = @async_client.AsyncClient::connect("localhost", 27017)!
+///   let client = @mongodb.Client::connect("localhost", 27017)!
 ///   let coll = client.database("mydb").collection("users")
 ///
 ///   // Insert documents using JSON literals

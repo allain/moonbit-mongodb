@@ -1,7 +1,7 @@
 ///|
 /// Async cursor for iterating over query results
-pub struct AsyncCursor {
-  collection : AsyncCollection
+pub struct Cursor {
+  collection : Collection
   cursor_id : Int64
   batch : Array[@types.BsonValue]
   mut index : Int
@@ -9,24 +9,24 @@ pub struct AsyncCursor {
 }
 
 ///|
-/// Create a new cursor
-pub fn AsyncCursor::new(
-  collection : AsyncCollection,
+/// Create a new cursor (internal)
+fn Cursor::new(
+  collection : Collection,
   batch : Array[@types.BsonValue],
   cursor_id : Int64,
-) -> AsyncCursor {
+) -> Cursor {
   { collection, cursor_id, batch, index: 0, exhausted: cursor_id == 0L }
 }
 
 ///|
 /// Check if cursor has more results in current batch
-pub fn AsyncCursor::has_next(self : AsyncCursor) -> Bool {
+pub fn Cursor::has_next(self : Cursor) -> Bool {
   self.index < self.batch.length()
 }
 
 ///|
 /// Get next document from current batch
-pub fn AsyncCursor::next(self : AsyncCursor) -> @types.BsonValue? {
+pub fn Cursor::next(self : Cursor) -> @types.BsonValue? {
   if self.index < self.batch.length() {
     let doc = self.batch[self.index]
     self.index = self.index + 1
@@ -38,22 +38,22 @@ pub fn AsyncCursor::next(self : AsyncCursor) -> @types.BsonValue? {
 
 ///|
 /// Check if cursor is exhausted (no more batches available)
-pub fn AsyncCursor::is_exhausted(self : AsyncCursor) -> Bool {
+pub fn Cursor::is_exhausted(self : Cursor) -> Bool {
   self.exhausted && self.index >= self.batch.length()
 }
 
 ///|
 /// Get the cursor ID
-pub fn AsyncCursor::id(self : AsyncCursor) -> Int64 {
+pub fn Cursor::id(self : Cursor) -> Int64 {
   self.cursor_id
 }
 
 ///|
 /// Fetch more results from the server
-pub async fn AsyncCursor::get_more(
-  self : AsyncCursor,
+pub async fn Cursor::get_more(
+  self : Cursor,
   batch_size? : Int,
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   if self.exhausted {
     return
   }
@@ -78,9 +78,8 @@ pub async fn AsyncCursor::get_more(
       Some(@types.String(msg)) => msg
       _ => "getMore failed"
     }
-    raise AsyncConnectionError::CommandFailed(errmsg)
+    raise MongoError::CommandFailed(errmsg)
   }
-
   match response.get("cursor") {
     Some(@types.Document(cursor_map)) => {
       // Update cursor ID
@@ -102,18 +101,15 @@ pub async fn AsyncCursor::get_more(
         _ => ()
       }
     }
-    _ =>
-      raise AsyncConnectionError::InvalidResponse(
-        "No cursor in getMore response",
-      )
+    _ => raise MongoError::InvalidResponse("No cursor in getMore response")
   }
 }
 
 ///|
 /// Collect all documents into an array
-pub async fn AsyncCursor::to_array(
-  self : AsyncCursor,
-) -> Array[@types.BsonValue] raise AsyncConnectionError {
+pub async fn Cursor::to_array(
+  self : Cursor,
+) -> Array[@types.BsonValue] raise MongoError {
   let result : Array[@types.BsonValue] = []
 
   // First get current batch
@@ -139,7 +135,7 @@ pub async fn AsyncCursor::to_array(
 
 ///|
 /// Close the cursor (send killCursors command)
-pub async fn AsyncCursor::close(self : AsyncCursor) -> Unit {
+pub async fn Cursor::close(self : Cursor) -> Unit {
   if self.cursor_id == 0L || self.exhausted {
     return
   }
@@ -158,10 +154,10 @@ pub async fn AsyncCursor::close(self : AsyncCursor) -> Unit {
 
 ///|
 /// Iterate over cursor with a callback
-pub async fn AsyncCursor::for_each(
-  self : AsyncCursor,
+pub async fn Cursor::for_each(
+  self : Cursor,
   f : (@types.BsonValue) -> Unit,
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   // Process current batch
   while self.has_next() {
     match self.next() {

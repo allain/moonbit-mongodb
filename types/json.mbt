@@ -149,42 +149,36 @@ pub fn bson_to_json(bson : BsonValue) -> Json {
       }
     Binary(data, subtype) => {
       let hex = bytes_to_hex(data)
-      Json::object(
-        {
-          "$binary": Json::object(
-            {
-              "base64": Json::string(hex),
-              "subType": Json::string(subtype.to_int().to_string()),
-            },
-          ),
-        },
-      )
+      Json::object({
+        "$binary": Json::object({
+          "base64": Json::string(hex),
+          "subType": Json::string(subtype.to_int().to_string()),
+        }),
+      })
     }
     Regex(pattern~, options~) =>
-      Json::object(
-        { "$regex": Json::string(pattern), "$options": Json::string(options) },
-      )
+      Json::object({
+        "$regex": Json::string(pattern),
+        "$options": Json::string(options),
+      })
     Code(code) => Json::object({ "$code": Json::string(code) })
     CodeWithScope(code~, scope~) => {
       let scope_json : Map[String, Json] = {}
       for key, value in scope {
         scope_json[key] = bson_to_json(value)
       }
-      Json::object(
-        { "$code": Json::string(code), "$scope": Json::object(scope_json) },
-      )
+      Json::object({
+        "$code": Json::string(code),
+        "$scope": Json::object(scope_json),
+      })
     }
     Timestamp(increment~, timestamp~) =>
-      Json::object(
-        {
-          "$timestamp": Json::object(
-            {
-              "t": Json::number(timestamp.reinterpret_as_int().to_double()),
-              "i": Json::number(increment.reinterpret_as_int().to_double()),
-            },
-          ),
-        },
-      )
+      Json::object({
+        "$timestamp": Json::object({
+          "t": Json::number(timestamp.reinterpret_as_int().to_double()),
+          "i": Json::number(increment.reinterpret_as_int().to_double()),
+        }),
+      })
     Decimal128(bytes) => {
       // Convert bytes to hex for now (full decimal128 string conversion would need IEEE 754)
       let hex = bytes_to_hex(bytes)

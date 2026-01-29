@@ -6,7 +6,7 @@
 /// Test basic connection to MongoDB
 test "connect to mongodb" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
+    let client = Client::connect("127.0.0.1", 27017) catch {
       e => {
         println("Failed to connect: \{e}")
         return
@@ -21,9 +21,7 @@ test "connect to mongodb" {
 /// Test insert and find one document
 test "insert and find one" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_insert_find")
 
@@ -35,7 +33,6 @@ test "insert and find one" {
       .set("name", @types.bson_string("TestUser"))
       .set("age", @types.bson_int32(25))
       .set("active", @types.bson_bool(true))
-
     let result = coll.insert_one(doc) catch {
       e => {
         println("Insert failed: \{e}")
@@ -79,9 +76,7 @@ test "insert and find one" {
 /// Test insert many documents
 test "insert many" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_insert_many")
 
@@ -91,16 +86,15 @@ test "insert many" {
     // Insert multiple documents
     let docs : Array[@types.BsonValue] = [
       @types.bson_document()
-        .set("name", @types.bson_string("Alice"))
-        .set("score", @types.bson_int32(95)),
+      .set("name", @types.bson_string("Alice"))
+      .set("score", @types.bson_int32(95)),
       @types.bson_document()
-        .set("name", @types.bson_string("Bob"))
-        .set("score", @types.bson_int32(87)),
+      .set("name", @types.bson_string("Bob"))
+      .set("score", @types.bson_int32(87)),
       @types.bson_document()
-        .set("name", @types.bson_string("Charlie"))
-        .set("score", @types.bson_int32(92)),
+      .set("name", @types.bson_string("Charlie"))
+      .set("score", @types.bson_int32(92)),
     ]
-
     let result = coll.insert_many(docs) catch {
       e => {
         println("Insert many failed: \{e}")
@@ -130,21 +124,18 @@ test "insert many" {
 /// Test find with cursor
 test "find with cursor" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor")
 
     // Clean up and insert test data
     let _ = coll.delete_many(@types.bson_document())
-
     let docs : Array[@types.BsonValue] = []
     for i = 0; i < 10; i = i + 1 {
       docs.push(
         @types.bson_document()
-          .set("index", @types.bson_int32(i))
-          .set("value", @types.bson_string("item_\{i}")),
+        .set("index", @types.bson_int32(i))
+        .set("value", @types.bson_string("item_\{i}")),
       )
     }
     let _ = coll.insert_many(docs) catch {
@@ -162,7 +153,6 @@ test "find with cursor" {
         return
       }
     }
-
     let results = cursor.to_array()
     inspect(results.length(), content="10")
 
@@ -176,9 +166,7 @@ test "find with cursor" {
 /// Test update one document
 test "update one" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_update")
 
@@ -186,8 +174,8 @@ test "update one" {
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
       @types.bson_document()
-        .set("name", @types.bson_string("UpdateTest"))
-        .set("counter", @types.bson_int32(0)),
+      .set("name", @types.bson_string("UpdateTest"))
+      .set("counter", @types.bson_int32(0)),
     )
 
     // Update the document
@@ -199,7 +187,6 @@ test "update one" {
       "$set",
       @types.bson_document().set("counter", @types.bson_int32(42)),
     )
-
     let result = coll.update_one(filter, update) catch {
       e => {
         println("Update failed: \{e}")
@@ -236,9 +223,7 @@ test "update one" {
 /// Test update many documents
 test "update many" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_update_many")
 
@@ -246,27 +231,23 @@ test "update many" {
     let _ = coll.delete_many(@types.bson_document())
     let docs : Array[@types.BsonValue] = [
       @types.bson_document()
-        .set("category", @types.bson_string("A"))
-        .set("value", @types.bson_int32(1)),
+      .set("category", @types.bson_string("A"))
+      .set("value", @types.bson_int32(1)),
       @types.bson_document()
-        .set("category", @types.bson_string("A"))
-        .set("value", @types.bson_int32(2)),
+      .set("category", @types.bson_string("A"))
+      .set("value", @types.bson_int32(2)),
       @types.bson_document()
-        .set("category", @types.bson_string("B"))
-        .set("value", @types.bson_int32(3)),
+      .set("category", @types.bson_string("B"))
+      .set("value", @types.bson_int32(3)),
     ]
     let _ = coll.insert_many(docs)
 
     // Update all category A documents
-    let filter = @types.bson_document().set(
-      "category",
-      @types.bson_string("A"),
-    )
+    let filter = @types.bson_document().set("category", @types.bson_string("A"))
     let update = @types.bson_document().set(
       "$set",
       @types.bson_document().set("updated", @types.bson_bool(true)),
     )
-
     let result = coll.update_many(filter, update) catch {
       e => {
         println("Update many failed: \{e}")
@@ -287,20 +268,16 @@ test "update many" {
 /// Test delete one document
 test "delete one" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_delete")
 
     // Clean up and insert test data
     let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many(
-      [
-        @types.bson_document().set("name", @types.bson_string("Delete1")),
-        @types.bson_document().set("name", @types.bson_string("Delete2")),
-      ],
-    )
+    let _ = coll.insert_many([
+      @types.bson_document().set("name", @types.bson_string("Delete1")),
+      @types.bson_document().set("name", @types.bson_string("Delete2")),
+    ])
 
     // Delete one
     let result = coll.delete_one(
@@ -333,9 +310,7 @@ test "delete one" {
 /// Test delete many documents
 test "delete many" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_delete_many")
 
@@ -345,8 +320,8 @@ test "delete many" {
     for i = 0; i < 5; i = i + 1 {
       docs.push(
         @types.bson_document()
-          .set("batch", @types.bson_string("test"))
-          .set("num", @types.bson_int32(i)),
+        .set("batch", @types.bson_string("test"))
+        .set("num", @types.bson_int32(i)),
       )
     }
     let _ = coll.insert_many(docs)
@@ -371,7 +346,6 @@ test "delete many" {
       }
     }
     inspect(count, content="0")
-
     client.close()
   })
 }
@@ -380,9 +354,7 @@ test "delete many" {
 /// Test count documents
 test "count documents" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_count")
 
@@ -392,11 +364,11 @@ test "count documents" {
     for i = 0; i < 7; i = i + 1 {
       docs.push(
         @types.bson_document()
-          .set(
-            "type",
-            @types.bson_string(if i % 2 == 0 { "even" } else { "odd" }),
-          )
-          .set("num", @types.bson_int32(i)),
+        .set(
+          "type",
+          @types.bson_string(if i % 2 == 0 { "even" } else { "odd" }),
+        )
+        .set("num", @types.bson_int32(i)),
       )
     }
     let _ = coll.insert_many(docs)
@@ -420,7 +392,6 @@ test "count documents" {
       }
     }
     inspect(evens, content="4") // 0, 2, 4, 6
-
     let odds = coll.count_documents(
       @types.bson_document().set("type", @types.bson_string("odd")),
     ) catch {
@@ -441,9 +412,7 @@ test "count documents" {
 /// Test find with sort, skip, and limit
 test "find with options" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_options")
 
@@ -453,8 +422,8 @@ test "find with options" {
     for i = 0; i < 10; i = i + 1 {
       docs.push(
         @types.bson_document()
-          .set("index", @types.bson_int32(i))
-          .set("name", @types.bson_string("item_\{i}")),
+        .set("index", @types.bson_int32(i))
+        .set("name", @types.bson_string("item_\{i}")),
       )
     }
     let _ = coll.insert_many(docs)
@@ -504,9 +473,7 @@ test "find with options" {
 /// Test find with projection
 test "find with projection" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_projection")
 
@@ -514,9 +481,9 @@ test "find with projection" {
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
       @types.bson_document()
-        .set("name", @types.bson_string("ProjectTest"))
-        .set("secret", @types.bson_string("hidden"))
-        .set("visible", @types.bson_int32(123)),
+      .set("name", @types.bson_string("ProjectTest"))
+      .set("secret", @types.bson_string("hidden"))
+      .set("visible", @types.bson_int32(123)),
     )
 
     // Find with projection (exclude secret)
@@ -531,7 +498,6 @@ test "find with projection" {
     }
     let results = cursor.to_array()
     inspect(results.length(), content="1")
-
     let doc = results[0]
     // name and visible should be present
     match doc.get("name") {
@@ -558,9 +524,7 @@ test "find with projection" {
 /// Test JSON API - insert and query
 test "json api insert and query" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_api")
 
@@ -568,9 +532,7 @@ test "json api insert and query" {
     let _ = coll.remove_all({})
 
     // Insert using JSON API
-    let result = coll.insert(
-      { "name": "JsonTest", "value": 42, "active": true },
-    ) catch {
+    let result = coll.insert({ "name": "JsonTest", "value": 42, "active": true }) catch {
       e => {
         println("JSON insert failed: \{e}")
         client.close()
@@ -605,9 +567,7 @@ test "json api insert and query" {
 /// Test JSON API - modify and remove
 test "json api modify and remove" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_modify")
 
@@ -616,10 +576,9 @@ test "json api modify and remove" {
     let _ = coll.insert({ "name": "ModifyTest", "count": 0 })
 
     // Modify using JSON API
-    let update_result = coll.modify_one(
-      { "name": "ModifyTest" },
-      { "$inc": { "count": 5 } },
-    ) catch {
+    let update_result = coll.modify_one({ "name": "ModifyTest" }, {
+      "$inc": { "count": 5 },
+    }) catch {
       e => {
         println("JSON modify failed: \{e}")
         client.close()
@@ -648,7 +607,6 @@ test "json api modify and remove" {
       }
     }
     inspect(delete_result.deleted_count, content="1")
-
     client.close()
   })
 }
@@ -657,9 +615,7 @@ test "json api modify and remove" {
 /// Test distinct values
 test "distinct" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_distinct")
 
@@ -694,9 +650,7 @@ test "distinct" {
 /// Test aggregation pipeline
 test "aggregation" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_aggregation")
 
@@ -704,14 +658,14 @@ test "aggregation" {
     let _ = coll.delete_many(@types.bson_document())
     let docs : Array[@types.BsonValue] = [
       @types.bson_document()
-        .set("category", @types.bson_string("A"))
-        .set("amount", @types.bson_int32(100)),
+      .set("category", @types.bson_string("A"))
+      .set("amount", @types.bson_int32(100)),
       @types.bson_document()
-        .set("category", @types.bson_string("A"))
-        .set("amount", @types.bson_int32(200)),
+      .set("category", @types.bson_string("A"))
+      .set("amount", @types.bson_int32(200)),
       @types.bson_document()
-        .set("category", @types.bson_string("B"))
-        .set("amount", @types.bson_int32(150)),
+      .set("category", @types.bson_string("B"))
+      .set("amount", @types.bson_int32(150)),
     ]
     let _ = coll.insert_many(docs)
 
@@ -720,18 +674,17 @@ test "aggregation" {
       @types.bson_document().set(
         "$group",
         @types.bson_document()
-          .set("_id", @types.bson_string("$category"))
-          .set(
-            "total",
-            @types.bson_document().set("$sum", @types.bson_string("$amount")),
-          ),
+        .set("_id", @types.bson_string("$category"))
+        .set(
+          "total",
+          @types.bson_document().set("$sum", @types.bson_string("$amount")),
+        ),
       ),
       @types.bson_document().set(
         "$sort",
         @types.bson_document().set("_id", @types.bson_int32(1)),
       ),
     ]
-
     let cursor = coll.aggregate(pipeline) catch {
       e => {
         println("Aggregation failed: \{e}")
@@ -752,9 +705,7 @@ test "aggregation" {
 /// Test find one and update
 test "find one and update" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_and_update")
 
@@ -762,8 +713,8 @@ test "find one and update" {
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
       @types.bson_document()
-        .set("name", @types.bson_string("FindUpdate"))
-        .set("version", @types.bson_int32(1)),
+      .set("name", @types.bson_string("FindUpdate"))
+      .set("version", @types.bson_int32(1)),
     )
 
     // Find and update, return new document
@@ -773,7 +724,7 @@ test "find one and update" {
         "$inc",
         @types.bson_document().set("version", @types.bson_int32(1)),
       ),
-      return_document=@async_client.ReturnDocument::after(),
+      return_document=ReturnDocument::after(),
     ) catch {
       e => {
         println("Find and update failed: \{e}")
@@ -781,7 +732,6 @@ test "find one and update" {
         return
       }
     }
-
     match result {
       Some(doc) =>
         match doc.get("version") {
@@ -801,9 +751,7 @@ test "find one and update" {
 /// Test find one and delete
 test "find one and delete" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_and_delete")
 
@@ -811,8 +759,8 @@ test "find one and delete" {
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
       @types.bson_document()
-        .set("name", @types.bson_string("ToDelete"))
-        .set("data", @types.bson_string("important")),
+      .set("name", @types.bson_string("ToDelete"))
+      .set("data", @types.bson_string("important")),
     )
 
     // Find and delete
@@ -825,7 +773,6 @@ test "find one and delete" {
         return
       }
     }
-
     match result {
       Some(doc) =>
         match doc.get("data") {
@@ -843,7 +790,6 @@ test "find one and delete" {
       }
     }
     inspect(count, content="0")
-
     client.close()
   })
 }
@@ -852,9 +798,7 @@ test "find one and delete" {
 /// Test replace one
 test "replace one" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_replace")
 
@@ -862,16 +806,16 @@ test "replace one" {
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
       @types.bson_document()
-        .set("name", @types.bson_string("Original"))
-        .set("old_field", @types.bson_string("old")),
+      .set("name", @types.bson_string("Original"))
+      .set("old_field", @types.bson_string("old")),
     )
 
     // Replace the entire document
     let result = coll.replace_one(
       @types.bson_document().set("name", @types.bson_string("Original")),
       @types.bson_document()
-        .set("name", @types.bson_string("Replaced"))
-        .set("new_field", @types.bson_string("new")),
+      .set("name", @types.bson_string("Replaced"))
+      .set("new_field", @types.bson_string("new")),
     ) catch {
       e => {
         println("Replace failed: \{e}")
@@ -915,9 +859,7 @@ test "replace one" {
 /// Test upsert
 test "upsert" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_upsert")
 
@@ -930,8 +872,8 @@ test "upsert" {
       @types.bson_document().set(
         "$set",
         @types.bson_document()
-          .set("name", @types.bson_string("Upserted"))
-          .set("value", @types.bson_int32(99)),
+        .set("name", @types.bson_string("Upserted"))
+        .set("value", @types.bson_int32(99)),
       ),
       upsert=true,
     ) catch {
@@ -963,9 +905,7 @@ test "upsert" {
 /// Test cursor for_each method
 test "cursor for_each" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_foreach")
 
@@ -975,8 +915,8 @@ test "cursor for_each" {
     for i = 0; i < 5; i = i + 1 {
       docs.push(
         @types.bson_document()
-          .set("index", @types.bson_int32(i))
-          .set("value", @types.bson_string("item_\{i}")),
+        .set("index", @types.bson_int32(i))
+        .set("value", @types.bson_string("item_\{i}")),
       )
     }
     let _ = coll.insert_many(docs)
@@ -988,7 +928,6 @@ test "cursor for_each" {
         return
       }
     }
-
     let mut count = 0
     cursor.for_each(fn(_doc) { count = count + 1 }) catch {
       _ => {
@@ -1008,9 +947,7 @@ test "cursor for_each" {
 /// Test cursor close method
 test "cursor close" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_close")
 
@@ -1055,22 +992,17 @@ test "cursor close" {
 /// Test cursor has_next and next methods
 test "cursor has_next and next" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_hasnext")
 
     // Clean up and insert test data
     let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many(
-      [
-        @types.bson_document().set("val", @types.bson_int32(1)),
-        @types.bson_document().set("val", @types.bson_int32(2)),
-        @types.bson_document().set("val", @types.bson_int32(3)),
-      ],
-    )
-
+    let _ = coll.insert_many([
+      @types.bson_document().set("val", @types.bson_int32(1)),
+      @types.bson_document().set("val", @types.bson_int32(2)),
+      @types.bson_document().set("val", @types.bson_int32(3)),
+    ])
     let cursor = coll.find(@types.bson_document()) catch {
       _ => {
         client.close()
@@ -1107,9 +1039,7 @@ test "cursor has_next and next" {
 /// Test cursor is_exhausted method
 test "cursor is_exhausted" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_exhausted")
 
@@ -1118,7 +1048,6 @@ test "cursor is_exhausted" {
     let _ = coll.insert_one(
       @types.bson_document().set("val", @types.bson_int32(1)),
     )
-
     let cursor = coll.find(@types.bson_document()) catch {
       _ => {
         client.close()
@@ -1145,9 +1074,7 @@ test "cursor is_exhausted" {
 /// Test cursor with empty results
 test "cursor empty results" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_empty")
 
@@ -1156,10 +1083,7 @@ test "cursor empty results" {
 
     // Find with filter that matches nothing
     let cursor = coll.find(
-      @types.bson_document().set(
-        "nonexistent",
-        @types.bson_string("value"),
-      ),
+      @types.bson_document().set("nonexistent", @types.bson_string("value")),
     ) catch {
       _ => {
         client.close()
@@ -1176,7 +1100,6 @@ test "cursor empty results" {
 
     // Cursor should be exhausted
     inspect(cursor.is_exhausted(), content="true")
-
     client.close()
   })
 }
@@ -1185,9 +1108,7 @@ test "cursor empty results" {
 /// Test cursor get_more with batch_size
 test "cursor get_more with batch_size" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_getmore")
 
@@ -1197,8 +1118,8 @@ test "cursor get_more with batch_size" {
     for i = 0; i < 20; i = i + 1 {
       docs.push(
         @types.bson_document()
-          .set("index", @types.bson_int32(i))
-          .set("data", @types.bson_string("test data for document \{i}")),
+        .set("index", @types.bson_int32(i))
+        .set("data", @types.bson_string("test data for document \{i}")),
       )
     }
     let _ = coll.insert_many(docs)
@@ -1225,9 +1146,7 @@ test "cursor get_more with batch_size" {
 /// Test cursor id method
 test "cursor id" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_id")
 
@@ -1236,7 +1155,6 @@ test "cursor id" {
     let _ = coll.insert_one(
       @types.bson_document().set("test", @types.bson_int32(1)),
     )
-
     let cursor = coll.find(@types.bson_document()) catch {
       _ => {
         client.close()
@@ -1258,9 +1176,7 @@ test "cursor id" {
 /// Test cursor for_each with get_more
 test "cursor for_each with multiple batches" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_cursor_foreach_batches")
 
@@ -1306,9 +1222,7 @@ test "cursor for_each with multiple batches" {
 /// Test estimated document count
 test "estimated count" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_estimated_count")
 
@@ -1345,9 +1259,7 @@ test "estimated count" {
 /// Test create and list indexes
 test "create and list indexes" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_indexes")
 
@@ -1394,16 +1306,17 @@ test "create and list indexes" {
 /// Test create index with options
 test "create index with options" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_index_options")
 
     // Ensure collection exists
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
-      @types.bson_document().set("email", @types.bson_string("test@example.com")),
+      @types.bson_document().set(
+        "email",
+        @types.bson_string("test@example.com"),
+      ),
     )
     let _ = coll.drop_indexes()
 
@@ -1446,9 +1359,7 @@ test "create index with options" {
 /// Test create multiple indexes
 test "create multiple indexes" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_multi_indexes")
 
@@ -1456,15 +1367,17 @@ test "create multiple indexes" {
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
       @types.bson_document()
-        .set("field1", @types.bson_int32(1))
-        .set("field2", @types.bson_int32(2)),
+      .set("field1", @types.bson_int32(1))
+      .set("field2", @types.bson_int32(2)),
     )
     let _ = coll.drop_indexes()
 
     // Create multiple indexes at once
     let specs : Array[IndexSpec] = [
       IndexSpec::new(@types.bson_document().set("field1", @types.bson_int32(1))),
-      IndexSpec::new(@types.bson_document().set("field2", @types.bson_int32(-1))),
+      IndexSpec::new(
+        @types.bson_document().set("field2", @types.bson_int32(-1)),
+      ),
     ]
     let names = coll.create_indexes(specs) catch {
       e => {
@@ -1496,9 +1409,7 @@ test "create multiple indexes" {
 /// Test drop single index
 test "drop index" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_drop_index")
 
@@ -1577,9 +1488,7 @@ test "index spec new" {
 /// Test bulk write with mixed operations
 test "bulk write mixed operations" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_bulk_write")
 
@@ -1590,21 +1499,20 @@ test "bulk write mixed operations" {
     let ops : Array[BulkOperation] = [
       BulkOperation::insert(
         @types.bson_document()
-          .set("name", @types.bson_string("Bulk1"))
-          .set("val", @types.bson_int32(1)),
+        .set("name", @types.bson_string("Bulk1"))
+        .set("val", @types.bson_int32(1)),
       ),
       BulkOperation::insert(
         @types.bson_document()
-          .set("name", @types.bson_string("Bulk2"))
-          .set("val", @types.bson_int32(2)),
+        .set("name", @types.bson_string("Bulk2"))
+        .set("val", @types.bson_int32(2)),
       ),
       BulkOperation::insert(
         @types.bson_document()
-          .set("name", @types.bson_string("Bulk3"))
-          .set("val", @types.bson_int32(3)),
+        .set("name", @types.bson_string("Bulk3"))
+        .set("val", @types.bson_int32(3)),
       ),
     ]
-
     let result = coll.bulk_write(ops) catch {
       e => {
         println("Bulk write failed: \{e}")
@@ -1633,27 +1541,23 @@ test "bulk write mixed operations" {
 /// Test bulk write with updates
 test "bulk write updates" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_bulk_updates")
 
     // Clean up and insert initial data
     let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many(
-      [
-        @types.bson_document()
-          .set("category", @types.bson_string("A"))
-          .set("count", @types.bson_int32(1)),
-        @types.bson_document()
-          .set("category", @types.bson_string("A"))
-          .set("count", @types.bson_int32(2)),
-        @types.bson_document()
-          .set("category", @types.bson_string("B"))
-          .set("count", @types.bson_int32(3)),
-      ],
-    )
+    let _ = coll.insert_many([
+      @types.bson_document()
+      .set("category", @types.bson_string("A"))
+      .set("count", @types.bson_int32(1)),
+      @types.bson_document()
+      .set("category", @types.bson_string("A"))
+      .set("count", @types.bson_int32(2)),
+      @types.bson_document()
+      .set("category", @types.bson_string("B"))
+      .set("count", @types.bson_int32(3)),
+    ])
 
     // Update operations
     let ops : Array[BulkOperation] = [
@@ -1672,7 +1576,6 @@ test "bulk write updates" {
         ),
       ),
     ]
-
     let result = coll.bulk_write(ops) catch {
       e => {
         println("Bulk update failed: \{e}")
@@ -1692,40 +1595,35 @@ test "bulk write updates" {
 /// Test bulk write with deletes
 test "bulk write deletes" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_bulk_deletes")
 
     // Insert test data
     let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many(
-      [
-        @types.bson_document()
-          .set("type", @types.bson_string("delete"))
-          .set("num", @types.bson_int32(1)),
-        @types.bson_document()
-          .set("type", @types.bson_string("delete"))
-          .set("num", @types.bson_int32(2)),
-        @types.bson_document()
-          .set("type", @types.bson_string("keep"))
-          .set("num", @types.bson_int32(3)),
-      ],
-    )
+    let _ = coll.insert_many([
+      @types.bson_document()
+      .set("type", @types.bson_string("delete"))
+      .set("num", @types.bson_int32(1)),
+      @types.bson_document()
+      .set("type", @types.bson_string("delete"))
+      .set("num", @types.bson_int32(2)),
+      @types.bson_document()
+      .set("type", @types.bson_string("keep"))
+      .set("num", @types.bson_int32(3)),
+    ])
 
     // Delete operations
     let ops : Array[BulkOperation] = [
       BulkOperation::delete_one(
         @types.bson_document()
-          .set("type", @types.bson_string("delete"))
-          .set("num", @types.bson_int32(1)),
+        .set("type", @types.bson_string("delete"))
+        .set("num", @types.bson_int32(1)),
       ),
       BulkOperation::delete_many(
         @types.bson_document().set("type", @types.bson_string("delete")),
       ),
     ]
-
     let result = coll.bulk_write(ops) catch {
       e => {
         println("Bulk delete failed: \{e}")
@@ -1804,9 +1702,7 @@ test "bulk operation constructors" {
 /// Test bulk write with replace operation
 test "bulk write replace" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_bulk_replace")
 
@@ -1814,8 +1710,8 @@ test "bulk write replace" {
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
       @types.bson_document()
-        .set("name", @types.bson_string("ToReplace"))
-        .set("old_field", @types.bson_string("old")),
+      .set("name", @types.bson_string("ToReplace"))
+      .set("old_field", @types.bson_string("old")),
     )
 
     // Replace operation
@@ -1823,12 +1719,11 @@ test "bulk write replace" {
       BulkOperation::replace(
         @types.bson_document().set("name", @types.bson_string("ToReplace")),
         @types.bson_document()
-          .set("name", @types.bson_string("Replaced"))
-          .set("new_field", @types.bson_string("new")),
+        .set("name", @types.bson_string("Replaced"))
+        .set("new_field", @types.bson_string("new")),
         upsert=false,
       ),
     ]
-
     let result = coll.bulk_write(ops) catch {
       e => {
         println("Bulk replace failed: \{e}")
@@ -1870,9 +1765,7 @@ test "bulk write replace" {
 /// Test JSON API insert_all
 test "json api insert_all" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_insert_all")
 
@@ -1880,13 +1773,11 @@ test "json api insert_all" {
     let _ = coll.remove_all({})
 
     // Insert multiple documents using JSON API
-    let result = coll.insert_all(
-      [
-        { "name": "Item1", "value": 10 },
-        { "name": "Item2", "value": 20 },
-        { "name": "Item3", "value": 30 },
-      ],
-    ) catch {
+    let result = coll.insert_all([
+      { "name": "Item1", "value": 10 },
+      { "name": "Item2", "value": 20 },
+      { "name": "Item3", "value": 30 },
+    ]) catch {
       e => {
         println("JSON insert_all failed: \{e}")
         client.close()
@@ -1914,21 +1805,17 @@ test "json api insert_all" {
 /// Test JSON API query with sort and projection
 test "json api query with options" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_query_opts")
 
     // Clean up and insert
     let _ = coll.remove_all({})
-    let _ = coll.insert_all(
-      [
-        { "name": "Z", "score": 100 },
-        { "name": "A", "score": 50 },
-        { "name": "M", "score": 75 },
-      ],
-    )
+    let _ = coll.insert_all([
+      { "name": "Z", "score": 100 },
+      { "name": "A", "score": 50 },
+      { "name": "M", "score": 75 },
+    ])
 
     // Query with sort (ascending by name)
     let docs = coll.query({}, sort={ "name": 1 }, limit=2) catch {
@@ -1964,27 +1851,22 @@ test "json api query with options" {
 /// Test JSON API modify_all
 test "json api modify_all" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_modify_all")
 
     // Clean up and insert
     let _ = coll.remove_all({})
-    let _ = coll.insert_all(
-      [
-        { "category": "A", "status": "pending" },
-        { "category": "A", "status": "pending" },
-        { "category": "B", "status": "pending" },
-      ],
-    )
+    let _ = coll.insert_all([
+      { "category": "A", "status": "pending" },
+      { "category": "A", "status": "pending" },
+      { "category": "B", "status": "pending" },
+    ])
 
     // Modify all category A
-    let result = coll.modify_all(
-      { "category": "A" },
-      { "$set": { "status": "done" } },
-    ) catch {
+    let result = coll.modify_all({ "category": "A" }, {
+      "$set": { "status": "done" },
+    }) catch {
       e => {
         println("JSON modify_all failed: \{e}")
         client.close()
@@ -2003,21 +1885,17 @@ test "json api modify_all" {
 /// Test JSON API aggregate_json
 test "json api aggregate_json" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_aggregate")
 
     // Clean up and insert
     let _ = coll.remove_all({})
-    let _ = coll.insert_all(
-      [
-        { "type": "A", "amount": 100 },
-        { "type": "A", "amount": 150 },
-        { "type": "B", "amount": 200 },
-      ],
-    )
+    let _ = coll.insert_all([
+      { "type": "A", "amount": 100 },
+      { "type": "A", "amount": 150 },
+      { "type": "B", "amount": 200 },
+    ])
 
     // Run aggregation pipeline
     let pipeline : Array[Json] = [
@@ -2043,22 +1921,18 @@ test "json api aggregate_json" {
 /// Test JSON API distinct_json
 test "json api distinct_json" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_distinct")
 
     // Clean up and insert
     let _ = coll.remove_all({})
-    let _ = coll.insert_all(
-      [
-        { "color": "red", "size": "S" },
-        { "color": "blue", "size": "M" },
-        { "color": "red", "size": "L" },
-        { "color": "green", "size": "S" },
-      ],
-    )
+    let _ = coll.insert_all([
+      { "color": "red", "size": "S" },
+      { "color": "blue", "size": "M" },
+      { "color": "red", "size": "L" },
+      { "color": "green", "size": "S" },
+    ])
 
     // Get distinct colors
     let colors = coll.distinct_json("color") catch {
@@ -2089,9 +1963,7 @@ test "json api distinct_json" {
 /// Test JSON API find_one_and_modify
 test "json api find_one_and_modify" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_find_modify")
 
@@ -2112,8 +1984,7 @@ test "json api find_one_and_modify" {
       }
     }
     match result {
-      Some({ "counter": Number(n, ..), .. }) =>
-        inspect(n.to_int(), content="5")
+      Some({ "counter": Number(n, ..), .. }) => inspect(n.to_int(), content="5")
       _ => println("Expected counter field")
     }
 
@@ -2127,9 +1998,7 @@ test "json api find_one_and_modify" {
 /// Test JSON API replace
 test "json api replace" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_json_replace")
 
@@ -2138,10 +2007,10 @@ test "json api replace" {
     let _ = coll.insert({ "name": "Old", "field1": "value1" })
 
     // Replace the document
-    let result = coll.replace(
-      { "name": "Old" },
-      { "name": "New", "field2": "value2" },
-    ) catch {
+    let result = coll.replace({ "name": "Old" }, {
+      "name": "New",
+      "field2": "value2",
+    }) catch {
       e => {
         println("JSON replace failed: \{e}")
         client.close()
@@ -2286,7 +2155,9 @@ test "pipeline count_stage" {
 ///|
 /// Test add_fields_stage helper
 test "pipeline add_fields_stage" {
-  let stage = add_fields_stage({ "computed": { "$multiply": ["$price", "$qty"] } })
+  let stage = add_fields_stage({
+    "computed": { "$multiply": ["$price", "$qty"] },
+  })
   match stage {
     { "$addFields": Object(_), .. } => ()
     _ => println("Expected $addFields stage")
@@ -2470,7 +2341,6 @@ test "read concern constructors" {
   }
 }
 
-
 ///|
 /// Test WriteConcernW constructors
 test "write concern w constructors" {
@@ -2479,13 +2349,11 @@ test "write concern w constructors" {
     WriteConcernW::Number(n) => inspect(n, content="2")
     _ => println("Expected Number")
   }
-
   let maj = WriteConcernW::majority()
   match maj {
     WriteConcernW::Majority => ()
     _ => println("Expected Majority")
   }
-
   let tag = WriteConcernW::tag("datacenter1")
   match tag {
     WriteConcernW::Tag(t) => inspect(t, content="datacenter1")
@@ -2501,25 +2369,21 @@ test "write concern constructors" {
     None => ()
     Some(_) => println("Expected None")
   }
-
   let w1 = WriteConcern::w(1)
   match w1.w {
     Some(WriteConcernW::Number(n)) => inspect(n, content="1")
     _ => println("Expected Number(1)")
   }
-
   let majority = WriteConcern::majority()
   match majority.w {
     Some(WriteConcernW::Majority) => ()
     _ => println("Expected Majority")
   }
-
   let with_w = WriteConcern::with_w(WriteConcernW::number(3))
   match with_w.w {
     Some(WriteConcernW::Number(n)) => inspect(n, content="3")
     _ => println("Expected Number(3)")
   }
-
   let with_tag = WriteConcern::with_tag("myTag")
   match with_tag.w {
     Some(WriteConcernW::Tag(t)) => inspect(t, content="myTag")
@@ -2669,9 +2533,7 @@ test "read preference to_bson with tags" {
 /// Test GridFS bucket creation
 test "gridfs bucket new" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
 
     // Test default bucket
@@ -2687,7 +2549,6 @@ test "gridfs bucket new" {
       chunk_size=128 * 1024,
     )
     ignore(custom_bucket)
-
     client.close()
   })
 }
@@ -2696,9 +2557,7 @@ test "gridfs bucket new" {
 /// Test GridFS upload and download
 test "gridfs upload and download" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let bucket = GridFSBucket::new(db, bucket_name="test_gridfs")
 
@@ -2706,7 +2565,9 @@ test "gridfs upload and download" {
     let _ = bucket.drop()
 
     // Create test data
-    let test_data = Bytes::from_array([b'H', b'e', b'l', b'l', b'o', b' ', b'W', b'o', b'r', b'l', b'd'])
+    let test_data = Bytes::from_array([
+      b'H', b'e', b'l', b'l', b'o', b' ', b'W', b'o', b'r', b'l', b'd',
+    ])
 
     // Upload file
     let file_id = bucket.upload("test.txt", test_data) catch {
@@ -2738,9 +2599,7 @@ test "gridfs upload and download" {
 /// Test GridFS file operations
 test "gridfs file operations" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let bucket = GridFSBucket::new(db, bucket_name="test_gridfs_ops")
 
@@ -2841,9 +2700,7 @@ test "gridfs file operations" {
 /// Test GridFS download by name
 test "gridfs download by name" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let bucket = GridFSBucket::new(db, bucket_name="test_gridfs_byname")
 
@@ -2879,9 +2736,7 @@ test "gridfs download by name" {
 /// Test GridFS with metadata
 test "gridfs with metadata" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let bucket = GridFSBucket::new(db, bucket_name="test_gridfs_meta")
 
@@ -2893,7 +2748,7 @@ test "gridfs with metadata" {
     let metadata = @types.bson_document()
       .set("author", @types.bson_string("Test"))
       .set("version", @types.bson_int32(1))
-    let file_id = bucket.upload("meta.txt", test_data, metadata=metadata) catch {
+    let file_id = bucket.upload("meta.txt", test_data, metadata~) catch {
       _ => {
         client.close()
         return
@@ -2934,9 +2789,7 @@ test "gridfs with metadata" {
 /// Test session creation
 test "session creation" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
 
     // Start a session
     let session = client.start_session()
@@ -2955,7 +2808,6 @@ test "session creation" {
     session.end_session() catch {
       _ => ()
     }
-
     client.close()
   })
 }
@@ -2964,10 +2816,7 @@ test "session creation" {
 /// Test session start transaction
 test "session start transaction" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
-
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let session = client.start_session()
 
     // Start a transaction
@@ -2986,14 +2835,17 @@ test "session start transaction" {
     let start_result = session.start_transaction() catch {
       _ => {
         // Expected to fail
-        session.end_session() catch { _ => () }
+        session.end_session() catch {
+          _ => ()
+        }
         client.close()
         return
       }
     }
     ignore(start_result)
-
-    session.end_session() catch { _ => () }
+    session.end_session() catch {
+      _ => ()
+    }
     client.close()
   })
 }
@@ -3002,10 +2854,7 @@ test "session start transaction" {
 /// Test session abort transaction
 test "session abort transaction" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
-
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let session = client.start_session()
 
     // Start a transaction
@@ -3028,8 +2877,9 @@ test "session abort transaction" {
 
     // Should no longer be in transaction
     inspect(session.in_transaction(), content="false")
-
-    session.end_session() catch { _ => () }
+    session.end_session() catch {
+      _ => ()
+    }
     client.close()
   })
 }
@@ -3050,37 +2900,6 @@ test "transaction options default" {
     None => ()
     Some(_) => println("Expected None")
   }
-}
-
-///|
-/// Test session mark_in_progress
-test "session mark in progress" {
-  @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
-
-    let session = client.start_session()
-
-    // Start a transaction (puts it in Starting state)
-    session.start_transaction() catch {
-      _ => {
-        client.close()
-        return
-      }
-    }
-
-    // Mark as in progress
-    session.mark_in_progress()
-
-    // Should still be in transaction
-    inspect(session.in_transaction(), content="true")
-
-    // Abort to clean up
-    let _ = session.abort_transaction()
-    session.end_session() catch { _ => () }
-    client.close()
-  })
 }
 
 // =============================================================================
@@ -3196,9 +3015,7 @@ test "connection pool multiple connections" {
     let pool = ConnectionPool::new("127.0.0.1", 27017)
 
     // Acquire multiple connections
-    let conn1 = pool.acquire() catch {
-      _ => return
-    }
+    let conn1 = pool.acquire() catch { _ => return }
     let conn2 = pool.acquire() catch {
       _ => {
         pool.release(conn1)
@@ -3206,7 +3023,6 @@ test "connection pool multiple connections" {
         return
       }
     }
-
     inspect(pool.current_size(), content="2")
     inspect(pool.in_use_count(), content="2")
     inspect(pool.available_count(), content="0")
@@ -3220,37 +3036,6 @@ test "connection pool multiple connections" {
     pool.release(conn2)
     inspect(pool.in_use_count(), content="0")
     inspect(pool.available_count(), content="2")
-
-    pool.close()
-  })
-}
-
-///|
-/// Test ConnectionPool with_connection
-test "connection pool with_connection" {
-  @async.with_event_loop(fn(_root) {
-    let pool = ConnectionPool::new("127.0.0.1", 27017)
-
-    // Use with_connection to execute an operation
-    let result = pool.with_connection(
-      async fn(conn) -> Int raise AsyncConnectionError {
-        // Just verify we have a connection
-        ignore(conn)
-        42
-      },
-    ) catch {
-      e => {
-        println("with_connection failed: \{e}")
-        pool.close()
-        return
-      }
-    }
-    inspect(result, content="42")
-
-    // Connection should be released back to pool
-    inspect(pool.available_count(), content="1")
-    inspect(pool.in_use_count(), content="0")
-
     pool.close()
   })
 }
@@ -3263,7 +3048,7 @@ test "connection pool with_connection" {
 /// Test connect_uri with basic URI
 test "connect_uri basic" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect_uri("mongodb://127.0.0.1:27017") catch {
+    let client = Client::connect_uri("mongodb://127.0.0.1:27017") catch {
       e => {
         println("Connect URI failed: \{e}")
         return
@@ -3285,7 +3070,7 @@ test "connect_uri basic" {
 /// Test connect_uri with database path
 test "connect_uri with database" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect_uri("mongodb://127.0.0.1:27017/testdb") catch {
+    let client = Client::connect_uri("mongodb://127.0.0.1:27017/testdb") catch {
       _ => return
     }
     client.close()
@@ -3296,7 +3081,7 @@ test "connect_uri with database" {
 /// Test connect_uri with default port
 test "connect_uri default port" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect_uri("mongodb://127.0.0.1") catch {
+    let client = Client::connect_uri("mongodb://127.0.0.1") catch {
       _ => return
     }
     client.close()
@@ -3308,7 +3093,7 @@ test "connect_uri default port" {
 test "connect_uri with auth format" {
   @async.with_event_loop(fn(_root) {
     // This tests the @ parsing even though auth isn't actually performed
-    let client = AsyncClient::connect_uri("mongodb://user:pass@127.0.0.1:27017") catch {
+    let client = Client::connect_uri("mongodb://user:pass@127.0.0.1:27017") catch {
       _ => return
     }
     client.close()
@@ -3319,9 +3104,7 @@ test "connect_uri with auth format" {
 /// Test database name accessor
 test "database name accessor" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("my_test_db")
     inspect(db.name(), content="my_test_db")
     client.close()
@@ -3332,9 +3115,7 @@ test "database name accessor" {
 /// Test collection name and full_name accessors
 test "collection name accessors" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_db")
     let coll = db.collection("test_coll")
     inspect(coll.name(), content="test_coll")
@@ -3347,9 +3128,7 @@ test "collection name accessors" {
 /// Test run_command
 test "database run_command" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("admin")
 
     // Run a simple ping command
@@ -3374,9 +3153,7 @@ test "database run_command" {
 /// Test run_command with $db already set
 test "database run_command with db set" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test")
 
     // Command already has $db field
@@ -3402,9 +3179,7 @@ test "database run_command with db set" {
 /// Test find with hint option
 test "find with hint" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_hint")
 
@@ -3443,9 +3218,7 @@ test "find with hint" {
 /// Test find with max_time_ms
 test "find with max_time_ms" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_timeout")
 
@@ -3475,9 +3248,7 @@ test "find with max_time_ms" {
 /// Test aggregate with options
 test "aggregate with options" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_aggregate_opts")
 
@@ -3487,6 +3258,7 @@ test "aggregate with options" {
       let _ = coll.insert_one(
         @types.bson_document().set("value", @types.bson_int32(i)),
       )
+
     }
 
     // Aggregate with batch_size, max_time_ms, and allow_disk_use
@@ -3518,26 +3290,22 @@ test "aggregate with options" {
 /// Test find_one_and_update with all options
 test "find_one_and_update full options" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_update_opts")
 
     // Setup
     let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many(
-      [
-        @types.bson_document()
-          .set("name", @types.bson_string("A"))
-          .set("priority", @types.bson_int32(1))
-          .set("secret", @types.bson_string("hidden")),
-        @types.bson_document()
-          .set("name", @types.bson_string("B"))
-          .set("priority", @types.bson_int32(2))
-          .set("secret", @types.bson_string("hidden")),
-      ],
-    )
+    let _ = coll.insert_many([
+      @types.bson_document()
+      .set("name", @types.bson_string("A"))
+      .set("priority", @types.bson_int32(1))
+      .set("secret", @types.bson_string("hidden")),
+      @types.bson_document()
+      .set("name", @types.bson_string("B"))
+      .set("priority", @types.bson_int32(2))
+      .set("secret", @types.bson_string("hidden")),
+    ])
 
     // Find and update with sort, projection, and return Before
     let result = coll.find_one_and_update(
@@ -3548,7 +3316,7 @@ test "find_one_and_update full options" {
       ),
       sort=@types.bson_document().set("priority", @types.bson_int32(-1)),
       projection=@types.bson_document().set("secret", @types.bson_int32(0)),
-      return_document=@async_client.ReturnDocument::before(),
+      return_document=ReturnDocument::before(),
     ) catch {
       e => {
         println("Find and update with options failed: \{e}")
@@ -3586,9 +3354,7 @@ test "find_one_and_update full options" {
 /// Test find_one_and_update with upsert
 test "find_one_and_update with upsert" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_update_upsert")
 
@@ -3601,11 +3367,11 @@ test "find_one_and_update with upsert" {
       @types.bson_document().set(
         "$set",
         @types.bson_document()
-          .set("key", @types.bson_string("unique"))
-          .set("value", @types.bson_int32(42)),
+        .set("key", @types.bson_string("unique"))
+        .set("value", @types.bson_int32(42)),
       ),
       upsert=true,
-      return_document=@async_client.ReturnDocument::after(),
+      return_document=ReturnDocument::after(),
     ) catch {
       e => {
         println("Upsert failed: \{e}")
@@ -3632,9 +3398,7 @@ test "find_one_and_update with upsert" {
 /// Test find_one_and_replace
 test "find_one_and_replace" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_replace")
 
@@ -3642,17 +3406,17 @@ test "find_one_and_replace" {
     let _ = coll.delete_many(@types.bson_document())
     let _ = coll.insert_one(
       @types.bson_document()
-        .set("name", @types.bson_string("Original"))
-        .set("old_field", @types.bson_string("value")),
+      .set("name", @types.bson_string("Original"))
+      .set("old_field", @types.bson_string("value")),
     )
 
     // Find and replace
     let result = coll.find_one_and_replace(
       @types.bson_document().set("name", @types.bson_string("Original")),
       @types.bson_document()
-        .set("name", @types.bson_string("Replaced"))
-        .set("new_field", @types.bson_string("new_value")),
-      return_document=@async_client.ReturnDocument::after(),
+      .set("name", @types.bson_string("Replaced"))
+      .set("new_field", @types.bson_string("new_value")),
+      return_document=ReturnDocument::after(),
     ) catch {
       e => {
         println("Find and replace failed: \{e}")
@@ -3689,9 +3453,7 @@ test "find_one_and_replace" {
 /// Test find_one_and_replace with upsert
 test "find_one_and_replace with upsert" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_replace_upsert")
 
@@ -3702,10 +3464,10 @@ test "find_one_and_replace with upsert" {
     let result = coll.find_one_and_replace(
       @types.bson_document().set("key", @types.bson_string("new")),
       @types.bson_document()
-        .set("key", @types.bson_string("new"))
-        .set("data", @types.bson_int32(100)),
+      .set("key", @types.bson_string("new"))
+      .set("data", @types.bson_int32(100)),
       upsert=true,
-      return_document=@async_client.ReturnDocument::after(),
+      return_document=ReturnDocument::after(),
     ) catch {
       _ => {
         client.close()
@@ -3731,26 +3493,22 @@ test "find_one_and_replace with upsert" {
 /// Test find_one_and_delete with options
 test "find_one_and_delete with options" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_find_delete_opts")
 
     // Setup
     let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many(
-      [
-        @types.bson_document()
-          .set("name", @types.bson_string("First"))
-          .set("order", @types.bson_int32(1))
-          .set("secret", @types.bson_string("hidden")),
-        @types.bson_document()
-          .set("name", @types.bson_string("Second"))
-          .set("order", @types.bson_int32(2))
-          .set("secret", @types.bson_string("hidden")),
-      ],
-    )
+    let _ = coll.insert_many([
+      @types.bson_document()
+      .set("name", @types.bson_string("First"))
+      .set("order", @types.bson_int32(1))
+      .set("secret", @types.bson_string("hidden")),
+      @types.bson_document()
+      .set("name", @types.bson_string("Second"))
+      .set("order", @types.bson_int32(2))
+      .set("secret", @types.bson_string("hidden")),
+    ])
 
     // Delete with sort (delete highest order) and projection
     let result = coll.find_one_and_delete(
@@ -3800,9 +3558,7 @@ test "find_one_and_delete with options" {
 /// Test collection rename
 test "collection rename" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_rename_source")
 
@@ -3841,9 +3597,7 @@ test "collection rename" {
 /// Test collection rename with drop_target
 test "collection rename with drop_target" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let source = db.collection("test_rename_src2")
     let target = db.collection("test_rename_tgt2")
@@ -3875,7 +3629,6 @@ test "collection rename with drop_target" {
       }
     }
     inspect(count, content="1")
-
     let doc = target.find_one(@types.bson_document()) catch {
       _ => {
         client.close()
@@ -3901,9 +3654,7 @@ test "collection rename with drop_target" {
 /// Test collection drop
 test "collection drop" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_drop_coll")
 
@@ -3929,7 +3680,6 @@ test "collection drop" {
         return
       }
     }
-
     client.close()
   })
 }
@@ -3938,9 +3688,7 @@ test "collection drop" {
 /// Test create_collection with options
 test "create_collection with options" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
 
     // Drop if exists
@@ -3979,9 +3727,7 @@ test "create_collection with options" {
 /// Test create_collection with validator
 test "create_collection with validator" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
 
     // Drop if exists
@@ -3994,7 +3740,7 @@ test "create_collection with validator" {
     )
     let coll = db.create_collection(
       "test_create_validated",
-      validator=validator,
+      validator~,
       validation_level="moderate",
       validation_action="warn",
     ) catch {
@@ -4020,9 +3766,7 @@ test "create_collection with validator" {
 /// Test drop_collection
 test "database drop_collection" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
 
     // Create a collection
@@ -4039,7 +3783,6 @@ test "database drop_collection" {
         return
       }
     }
-
     client.close()
   })
 }
@@ -4048,9 +3791,7 @@ test "database drop_collection" {
 /// Test list_collections
 test "list_collections" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
 
     // Create a test collection
@@ -4095,9 +3836,7 @@ test "list_collections" {
 /// Test list_collection_names
 test "list_collection_names" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
 
     // Create a test collection
@@ -4136,9 +3875,7 @@ test "list_collection_names" {
 /// Test database stats
 test "database stats" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
 
     // Get database stats
@@ -4156,7 +3893,6 @@ test "database stats" {
         inspect(name, content="test_moonbit_integration")
       _ => println("Expected db field")
     }
-
     client.close()
   })
 }
@@ -4165,9 +3901,7 @@ test "database stats" {
 /// Test list_databases
 test "list_databases" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
 
     // Create a database with a collection
     let db = client.database("test_moonbit_list_dbs")
@@ -4199,7 +3933,9 @@ test "list_databases" {
 
     // Cleanup
     let _ = coll.drop()
-    db.drop() catch { _ => () }
+    db.drop() catch {
+      _ => ()
+    }
     client.close()
   })
 }
@@ -4208,9 +3944,7 @@ test "list_databases" {
 /// Test list_database_names
 test "list_database_names" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
 
     // List database names
     let names = client.list_database_names() catch {
@@ -4230,7 +3964,6 @@ test "list_database_names" {
       }
     }
     inspect(found_admin, content="true")
-
     client.close()
   })
 }
@@ -4239,9 +3972,7 @@ test "list_database_names" {
 /// Test server_info
 test "server_info" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
 
     // Get server info
     let info = client.server_info() catch {
@@ -4257,7 +3988,6 @@ test "server_info" {
       Some(@types.String(_)) => ()
       _ => println("Expected version field")
     }
-
     client.close()
   })
 }
@@ -4266,10 +3996,7 @@ test "server_info" {
 /// Test ping
 test "ping" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
-
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let result = client.ping() catch {
       e => {
         println("ping failed: \{e}")
@@ -4278,7 +4005,6 @@ test "ping" {
       }
     }
     inspect(result, content="true")
-
     client.close()
   })
 }
@@ -4286,7 +4012,7 @@ test "ping" {
 ///|
 /// Test ReturnDocument::before constructor
 test "return document before" {
-  let rd = @async_client.ReturnDocument::before()
+  let rd = ReturnDocument::before()
   // Just verify it compiles and runs
   ignore(rd)
 }
@@ -4295,27 +4021,23 @@ test "return document before" {
 /// Test distinct with filter
 test "distinct with filter" {
   @async.with_event_loop(fn(_root) {
-    let client = AsyncClient::connect("127.0.0.1", 27017) catch {
-      _ => return
-    }
+    let client = Client::connect("127.0.0.1", 27017) catch { _ => return }
     let db = client.database("test_moonbit_integration")
     let coll = db.collection("test_distinct_filter")
 
     // Setup
     let _ = coll.delete_many(@types.bson_document())
-    let _ = coll.insert_many(
-      [
-        @types.bson_document()
-          .set("category", @types.bson_string("A"))
-          .set("type", @types.bson_string("small")),
-        @types.bson_document()
-          .set("category", @types.bson_string("A"))
-          .set("type", @types.bson_string("large")),
-        @types.bson_document()
-          .set("category", @types.bson_string("B"))
-          .set("type", @types.bson_string("small")),
-      ],
-    )
+    let _ = coll.insert_many([
+      @types.bson_document()
+      .set("category", @types.bson_string("A"))
+      .set("type", @types.bson_string("small")),
+      @types.bson_document()
+      .set("category", @types.bson_string("A"))
+      .set("type", @types.bson_string("large")),
+      @types.bson_document()
+      .set("category", @types.bson_string("B"))
+      .set("type", @types.bson_string("small")),
+    ])
 
     // Distinct with filter
     let values = coll.distinct(

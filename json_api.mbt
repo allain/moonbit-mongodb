@@ -1,18 +1,18 @@
 ///|
 /// Insert one document (JSON API)
-pub async fn AsyncCollection::insert(
-  self : AsyncCollection,
+pub async fn Collection::insert(
+  self : Collection,
   document : Json,
-) -> AsyncInsertResult raise AsyncConnectionError {
+) -> InsertResult raise MongoError {
   self.insert_one(@types.json_to_bson(document))
 }
 
 ///|
 /// Insert multiple documents (JSON API)
-pub async fn AsyncCollection::insert_all(
-  self : AsyncCollection,
+pub async fn Collection::insert_all(
+  self : Collection,
   documents : Array[Json],
-) -> AsyncInsertResult raise AsyncConnectionError {
+) -> InsertResult raise MongoError {
   let bson_docs : Array[@types.BsonValue] = []
   for doc in documents {
     bson_docs.push(@types.json_to_bson(doc))
@@ -22,14 +22,14 @@ pub async fn AsyncCollection::insert_all(
 
 ///|
 /// Find documents (JSON API)
-pub async fn AsyncCollection::query(
-  self : AsyncCollection,
+pub async fn Collection::query(
+  self : Collection,
   filter : Json,
   limit? : Int,
   skip? : Int,
   sort? : Json,
   projection? : Json,
-) -> Array[Json] raise AsyncConnectionError {
+) -> Array[Json] raise MongoError {
   let cursor = match (sort, projection) {
     (Some(s), Some(p)) =>
       self.find(
@@ -65,10 +65,10 @@ pub async fn AsyncCollection::query(
 
 ///|
 /// Find one document (JSON API)
-pub async fn AsyncCollection::query_one(
-  self : AsyncCollection,
+pub async fn Collection::query_one(
+  self : Collection,
   filter : Json,
-) -> Json? raise AsyncConnectionError {
+) -> Json? raise MongoError {
   match self.find_one(@types.json_to_bson(filter)) {
     Some(doc) => Some(@types.bson_to_json(doc))
     None => None
@@ -77,12 +77,12 @@ pub async fn AsyncCollection::query_one(
 
 ///|
 /// Update one document (JSON API)
-pub async fn AsyncCollection::modify_one(
-  self : AsyncCollection,
+pub async fn Collection::modify_one(
+  self : Collection,
   filter : Json,
   update : Json,
   upsert? : Bool = false,
-) -> AsyncUpdateResult raise AsyncConnectionError {
+) -> UpdateResult raise MongoError {
   self.update_one(
     @types.json_to_bson(filter),
     @types.json_to_bson(update),
@@ -92,12 +92,12 @@ pub async fn AsyncCollection::modify_one(
 
 ///|
 /// Update many documents (JSON API)
-pub async fn AsyncCollection::modify_all(
-  self : AsyncCollection,
+pub async fn Collection::modify_all(
+  self : Collection,
   filter : Json,
   update : Json,
   upsert? : Bool = false,
-) -> AsyncUpdateResult raise AsyncConnectionError {
+) -> UpdateResult raise MongoError {
   self.update_many(
     @types.json_to_bson(filter),
     @types.json_to_bson(update),
@@ -107,37 +107,37 @@ pub async fn AsyncCollection::modify_all(
 
 ///|
 /// Delete one document (JSON API)
-pub async fn AsyncCollection::remove_one(
-  self : AsyncCollection,
+pub async fn Collection::remove_one(
+  self : Collection,
   filter : Json,
-) -> AsyncDeleteResult raise AsyncConnectionError {
+) -> DeleteResult raise MongoError {
   self.delete_one(@types.json_to_bson(filter))
 }
 
 ///|
 /// Delete many documents (JSON API)
-pub async fn AsyncCollection::remove_all(
-  self : AsyncCollection,
+pub async fn Collection::remove_all(
+  self : Collection,
   filter : Json,
-) -> AsyncDeleteResult raise AsyncConnectionError {
+) -> DeleteResult raise MongoError {
   self.delete_many(@types.json_to_bson(filter))
 }
 
 ///|
 /// Count documents matching a filter (JSON API)
-pub async fn AsyncCollection::count(
-  self : AsyncCollection,
+pub async fn Collection::count(
+  self : Collection,
   filter : Json,
-) -> Int raise AsyncConnectionError {
+) -> Int raise MongoError {
   self.count_documents(@types.json_to_bson(filter))
 }
 
 ///|
 /// Run aggregation pipeline (JSON API)
-pub async fn AsyncCollection::aggregate_json(
-  self : AsyncCollection,
+pub async fn Collection::aggregate_json(
+  self : Collection,
   pipeline : Array[Json],
-) -> Array[Json] raise AsyncConnectionError {
+) -> Array[Json] raise MongoError {
   let bson_pipeline : Array[@types.BsonValue] = []
   for stage in pipeline {
     bson_pipeline.push(@types.json_to_bson(stage))
@@ -153,11 +153,11 @@ pub async fn AsyncCollection::aggregate_json(
 
 ///|
 /// Get distinct values for a field (JSON API)
-pub async fn AsyncCollection::distinct_json(
-  self : AsyncCollection,
+pub async fn Collection::distinct_json(
+  self : Collection,
   field : String,
   filter? : Json,
-) -> Array[Json] raise AsyncConnectionError {
+) -> Array[Json] raise MongoError {
   let values = match filter {
     Some(f) => self.distinct(field, filter=@types.json_to_bson(f))
     None => self.distinct(field)
@@ -171,13 +171,13 @@ pub async fn AsyncCollection::distinct_json(
 
 ///|
 /// Find and update a single document atomically (JSON API)
-pub async fn AsyncCollection::find_one_and_modify(
-  self : AsyncCollection,
+pub async fn Collection::find_one_and_modify(
+  self : Collection,
   filter : Json,
   update : Json,
   return_new? : Bool,
   upsert? : Bool,
-) -> Json? raise AsyncConnectionError {
+) -> Json? raise MongoError {
   let result = match (return_new, upsert) {
     (Some(true), Some(u)) =>
       self.find_one_and_update(
@@ -212,12 +212,12 @@ pub async fn AsyncCollection::find_one_and_modify(
 
 ///|
 /// Replace one document (JSON API)
-pub async fn AsyncCollection::replace(
-  self : AsyncCollection,
+pub async fn Collection::replace(
+  self : Collection,
   filter : Json,
   replacement : Json,
   upsert? : Bool,
-) -> AsyncUpdateResult raise AsyncConnectionError {
+) -> UpdateResult raise MongoError {
   self.replace_one(
     @types.json_to_bson(filter),
     @types.json_to_bson(replacement),

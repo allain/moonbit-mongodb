@@ -5,7 +5,6 @@
 /// Transaction state
 pub enum TransactionState {
   None
-  Starting
   InProgress
   Committed
   Aborted
@@ -28,7 +27,7 @@ pub fn TransactionOptions::default() -> TransactionOptions {
 ///|
 /// Client session for transactions
 pub struct ClientSession {
-  client : AsyncClient
+  client : Client
   session_id : @types.BsonValue
   mut transaction_state : TransactionState
   transaction_options : TransactionOptions
@@ -62,7 +61,7 @@ fn generate_session_uuid() -> @types.BsonValue {
 
 ///|
 /// Start a new client session
-pub fn AsyncClient::start_session(self : AsyncClient) -> ClientSession {
+pub fn Client::start_session(self : Client) -> ClientSession {
   let session_id = @types.bson_document().set("id", generate_session_uuid())
   {
     client: self,
@@ -82,7 +81,7 @@ pub fn ClientSession::id(self : ClientSession) -> @types.BsonValue {
 /// Check if session has an active transaction
 pub fn ClientSession::in_transaction(self : ClientSession) -> Bool {
   match self.transaction_state {
-    InProgress | Starting => true
+    InProgress => true
     _ => false
   }
 }
@@ -96,23 +95,14 @@ pub fn ClientSession::transaction_state(
 }
 
 ///|
-/// Mark the transaction as in progress (called when first operation is executed)
-pub fn ClientSession::mark_in_progress(self : ClientSession) -> Unit {
-  match self.transaction_state {
-    Starting => self.transaction_state = TransactionState::InProgress
-    _ => ()
-  }
-}
-
-///|
 /// Start a new transaction
 pub fn ClientSession::start_transaction(
   self : ClientSession,
   options? : TransactionOptions,
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   match self.transaction_state {
     None | Committed | Aborted => {
-      self.transaction_state = TransactionState::Starting
+      self.transaction_state = TransactionState::InProgress
       match options {
         Some(opts) =>
           // Note: MoonBit doesn't allow direct field assignment to self
@@ -121,10 +111,8 @@ pub fn ClientSession::start_transaction(
         None => ()
       }
     }
-    Starting | InProgress =>
-      raise AsyncConnectionError::CommandFailed(
-        "Transaction already in progress",
-      )
+    InProgress =>
+      raise MongoError::CommandFailed("Transaction already in progress")
   }
 }
 
@@ -132,11 +120,8 @@ pub fn ClientSession::start_transaction(
 /// Commit the current transaction
 pub async fn ClientSession::commit_transaction(
   self : ClientSession,
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   match self.transaction_state {
-    Starting =>
-      // No operations performed, nothing to commit
-      self.transaction_state = TransactionState::Committed
     InProgress => {
       let cmd = @types.bson_document()
         .set("commitTransaction", @types.bson_int32(1))
@@ -146,12 +131,10 @@ pub async fn ClientSession::commit_transaction(
       check_command_response(response)
       self.transaction_state = TransactionState::Committed
     }
-    None =>
-      raise AsyncConnectionError::CommandFailed("No transaction in progress")
+    None => raise MongoError::CommandFailed("No transaction in progress")
     Committed =>
-      raise AsyncConnectionError::CommandFailed("Transaction already committed")
-    Aborted =>
-      raise AsyncConnectionError::CommandFailed("Transaction was aborted")
+      raise MongoError::CommandFailed("Transaction already committed")
+    Aborted => raise MongoError::CommandFailed("Transaction was aborted")
   }
 }
 
@@ -159,11 +142,8 @@ pub async fn ClientSession::commit_transaction(
 /// Abort the current transaction
 pub async fn ClientSession::abort_transaction(
   self : ClientSession,
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   match self.transaction_state {
-    Starting =>
-      // No operations performed, nothing to abort
-      self.transaction_state = TransactionState::Aborted
     InProgress => {
       let cmd = @types.bson_document()
         .set("abortTransaction", @types.bson_int32(1))
@@ -174,12 +154,10 @@ pub async fn ClientSession::abort_transaction(
       let _ = response
       self.transaction_state = TransactionState::Aborted
     }
-    None =>
-      raise AsyncConnectionError::CommandFailed("No transaction in progress")
+    None => raise MongoError::CommandFailed("No transaction in progress")
     Committed =>
-      raise AsyncConnectionError::CommandFailed("Transaction already committed")
-    Aborted =>
-      raise AsyncConnectionError::CommandFailed("Transaction already aborted")
+      raise MongoError::CommandFailed("Transaction already committed")
+    Aborted => raise MongoError::CommandFailed("Transaction already aborted")
   }
 }
 
@@ -189,6 +167,7 @@ pub async fn ClientSession::end_session(self : ClientSession) -> Unit {
   // Abort any active transaction
   if self.in_transaction() {
     let _ = self.abort_transaction() catch { _ => () }
+
   }
   // Send endSessions command
   let sessions = @types.bson_array().push(self.session_id)
@@ -198,14 +177,15 @@ pub async fn ClientSession::end_session(self : ClientSession) -> Unit {
   let _ = self.client.conn.send_command(cmd) catch {
     _ => @types.bson_document()
   }
+
 }
 
 ///|
 /// Execute a callback within a transaction with automatic retry
 pub async fn[T] ClientSession::with_transaction(
   self : ClientSession,
-  callback : async (ClientSession) -> T raise AsyncConnectionError,
-) -> T raise AsyncConnectionError {
+  callback : async (ClientSession) -> T raise MongoError,
+) -> T raise MongoError {
   let max_retries = 3
   let mut attempt = 0
   while attempt < max_retries {
@@ -231,5 +211,5 @@ pub async fn[T] ClientSession::with_transaction(
     }
     return result
   }
-  raise AsyncConnectionError::CommandFailed("Transaction failed after retries")
+  raise MongoError::CommandFailed("Transaction failed after retries")
 }

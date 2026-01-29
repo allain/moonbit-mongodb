@@ -45,10 +45,10 @@ fn main {
 
 async fn run(_group : @async.TaskGroup[Unit]) -> Unit raise Error {
   // Connect with host and port
-  let client = @async_client.AsyncClient::connect("localhost", 27017)!
+  let client = @mongodb.Client::connect("localhost", 27017)!
 
   // Or connect with URI
-  let client = @async_client.AsyncClient::connect_uri("mongodb://localhost:27017/mydb")!
+  let client = @mongodb.Client::connect_uri("mongodb://localhost:27017/mydb")!
 
   // Get database and collection handles
   let db = client.database("mydb")
@@ -158,13 +158,13 @@ let updated = users.find_one_and_modify(
 ```moonbit
 // Using pipeline stage helpers
 let results = users.aggregate_json([
-  @async_client.match_stage({ "status": "active" }),
-  @async_client.group_stage(
+  @mongodb.match_stage({ "status": "active" }),
+  @mongodb.group_stage(
     { "city": "$city" },
     { "count": { "$sum": 1 }, "avgAge": { "$avg": "$age" } },
   ),
-  @async_client.sort_stage({ "count": -1 }),
-  @async_client.limit_stage(10),
+  @mongodb.sort_stage({ "count": -1 }),
+  @mongodb.limit_stage(10),
 ])!
 
 // Available pipeline stages:
@@ -221,13 +221,13 @@ users.drop_index("email_1")!
 
 ```moonbit
 let operations = [
-  @async_client.BulkOperation::insert({ "name": "User1" }),
-  @async_client.BulkOperation::insert({ "name": "User2" }),
-  @async_client.BulkOperation::update_one(
+  @mongodb.BulkOperation::insert({ "name": "User1" }),
+  @mongodb.BulkOperation::insert({ "name": "User2" }),
+  @mongodb.BulkOperation::update_one(
     @types.json_to_bson({ "name": "Alice" }),
     @types.json_to_bson({ "$set": { "updated": true } }),
   ),
-  @async_client.BulkOperation::delete_one(
+  @mongodb.BulkOperation::delete_one(
     @types.json_to_bson({ "status": "deleted" }),
   ),
 ]
@@ -328,16 +328,17 @@ for user in users {
 ### Error Handling
 
 ```moonbit
+///|
 let result = coll.insert({ "name": "Alice" }) catch {
-  @async_client.ConnectionFailed(msg) => {
+  @mongodb.MongoError::ConnectionFailed(msg) => {
     println("Connection failed: \{msg}")
     return
   }
-  @async_client.CommandFailed(msg) => {
+  @mongodb.MongoError::CommandFailed(msg) => {
     println("Command failed: \{msg}")
     return
   }
-  @async_client.WriteError(msg) => {
+  @mongodb.MongoError::WriteError(msg) => {
     println("Write error: \{msg}")
     return
   }
@@ -348,7 +349,7 @@ let result = coll.insert({ "name": "Alice" }) catch {
 }
 ```
 
-**Error types:** `ConnectionFailed`, `SendFailed`, `ReceiveFailed`, `HandshakeFailed`, `InvalidResponse`, `ProtocolError`, `CommandFailed`, `WriteError`, `Closed`
+**Error type:** `@mongodb.MongoError` with variants: `ConnectionFailed`, `SendFailed`, `ReceiveFailed`, `HandshakeFailed`, `InvalidResponse`, `ProtocolError`, `CommandFailed`, `WriteError`, `Closed`
 
 ### Extended JSON Types
 
@@ -372,6 +373,36 @@ let user = coll.query_one({ "_id": { "$oid": "507f1f77bcf86cd799439011" } })!
 - Native target (required for async TCP)
 - MongoDB 3.6+ (uses OP_MSG wire protocol)
 
+## Running Tests
+
+The integration tests require a running MongoDB instance on `localhost:27017`.
+
+### Using the test script (recommended)
+
+The test script automatically starts a MongoDB container, runs tests, and cleans up:
+
+```bash
+./scripts/test.sh
+```
+
+Pass additional options to `moon test`:
+
+```bash
+./scripts/test.sh --update  # Update snapshots
+```
+
+### Manual setup
+
+If you prefer to manage MongoDB yourself:
+
+```bash
+# Start MongoDB (e.g., via Docker)
+docker run -d -p 27017:27017 mongo:7
+
+# Run tests
+moon test --target native
+```
+
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache-2.0 License - see [LICENSE](LICENSE) for details.

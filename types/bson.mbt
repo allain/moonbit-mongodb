@@ -513,11 +513,7 @@ fn read_i64(bytes : Bytes, offset : Int) -> Int64 raise BsonError {
 
 ///|
 /// Get a slice of bytes as a new Bytes object with bounds checking
-fn slice_bytes(
-  bytes : Bytes,
-  offset : Int,
-  len : Int,
-) -> Bytes raise BsonError {
+fn slice_bytes(bytes : Bytes, offset : Int, len : Int) -> Bytes raise BsonError {
   if offset + len > bytes.length() {
     raise BsonError::DecodingError(
       "Buffer underflow: need \{len} bytes at offset \{offset}, have \{bytes.length()}",
@@ -542,10 +538,7 @@ fn bytes_to_ascii_string(bytes : Bytes) -> String {
 
 ///|
 /// Read a C-string, returns (string, bytes_consumed)
-fn read_cstring(
-  bytes : Bytes,
-  offset : Int,
-) -> (String, Int) raise BsonError {
+fn read_cstring(bytes : Bytes, offset : Int) -> (String, Int) raise BsonError {
   if offset >= bytes.length() {
     raise BsonError::DecodingError(
       "Buffer underflow: reading cstring at offset \{offset}",
@@ -637,7 +630,11 @@ fn decode_element(
         bytes,
         value_offset + pattern_size,
       )
-      (name, Regex(pattern~, options~), 1 + name_size + pattern_size + options_size)
+      (
+        name,
+        Regex(pattern~, options~),
+        1 + name_size + pattern_size + options_size,
+      )
     }
     b'\x0D' => { // Code (JavaScript)
       let (code, size) = read_bson_string(bytes, value_offset)

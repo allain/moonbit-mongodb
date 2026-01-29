@@ -205,7 +205,9 @@ test "bson_to_json" {
 ///|
 /// Test JSON with nested objects
 test "json_nested" {
-  let json : Json = { "user": { "name": "Charlie", "address": { "city": "NYC" } } }
+  let json : Json = {
+    "user": { "name": "Charlie", "address": { "city": "NYC" } },
+  }
   let bson = @types.json_to_bson(json)
   match bson.get("user") {
     Some(user) =>

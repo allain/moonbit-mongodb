@@ -1,27 +1,25 @@
 ///|
 /// Async MongoDB client
-pub struct AsyncClient {
-  conn : AsyncConnection
+pub struct Client {
+  conn : Connection
 }
 
 ///|
 /// Create a new async client and connect
-pub async fn AsyncClient::connect(
+pub async fn Client::connect(
   host : String,
   port : Int,
-) -> AsyncClient raise AsyncConnectionError {
-  let conn = AsyncConnection::connect(host, port)
+) -> Client raise MongoError {
+  let conn = Connection::connect(host, port)
   { conn, }
 }
 
 ///|
 /// Connect using a URI
-pub async fn AsyncClient::connect_uri(
-  uri : String,
-) -> AsyncClient raise AsyncConnectionError {
+pub async fn Client::connect_uri(uri : String) -> Client raise MongoError {
   // Parse URI: mongodb://host:port/database
   guard uri.has_prefix("mongodb://") else {
-    raise AsyncConnectionError::ConnectionFailed(
+    raise MongoError::ConnectionFailed(
       "Invalid URI scheme, expected mongodb://",
     )
   }
@@ -33,7 +31,7 @@ pub async fn AsyncClient::connect_uri(
     parts.push(p.to_string())
   }
   if parts.length() == 0 {
-    raise AsyncConnectionError::ConnectionFailed("Invalid URI format")
+    raise MongoError::ConnectionFailed("Invalid URI format")
   }
   let host_port = parts[0]
 
@@ -59,52 +57,46 @@ pub async fn AsyncClient::connect_uri(
   } else {
     27017
   }
-  AsyncClient::connect(host, port)
+  Client::connect(host, port)
 }
 
 ///|
 /// Get a database handle
-pub fn AsyncClient::database(
-  self : AsyncClient,
-  name : String,
-) -> AsyncDatabase {
+pub fn Client::database(self : Client, name : String) -> Database {
   { client: self, name }
 }
 
 ///|
 /// Close the client connection
-pub fn AsyncClient::close(self : AsyncClient) -> Unit {
+pub fn Client::close(self : Client) -> Unit {
   self.conn.close()
 }
 
 ///|
 /// Async database handle
-pub struct AsyncDatabase {
-  client : AsyncClient
+pub struct Database {
+  client : Client
   name : String
 }
 
 ///|
 /// Get a collection handle
-pub fn AsyncDatabase::collection(
-  self : AsyncDatabase,
-  name : String,
-) -> AsyncCollection {
+pub fn Database::collection(self : Database, name : String) -> Collection {
   { db: self, name }
 }
 
 ///|
 /// Get database name
-pub fn AsyncDatabase::name(self : AsyncDatabase) -> String {
+pub fn Database::name(self : Database) -> String {
   self.name
 }
 
 ///|
 /// Run a database command
-pub async fn AsyncDatabase::run_command(
-  self : AsyncDatabase,
+pub async fn Database::run_command(
+  self : Database,
   command : @types.BsonValue,
-) -> @types.BsonValue raise AsyncConnectionError {
+) -> @types.BsonValue raise MongoError {
   // Add $db field if not present
   let cmd = match command.get("$db") {
     Some(_) => command
@@ -115,16 +107,14 @@ pub async fn AsyncDatabase::run_command(
 
 ///|
 /// Async collection handle
-pub struct AsyncCollection {
-  db : AsyncDatabase
+pub struct Collection {
+  db : Database
   name : String
 }
 
 ///|
 /// Check if a response indicates command failure
-fn check_command_response(
-  response : @types.BsonValue,
-) -> Unit raise AsyncConnectionError {
+fn check_command_response(response : @types.BsonValue) -> Unit raise MongoError {
   // Check ok field
   let ok = match response.get("ok") {
     Some(@types.Double(v)) => v == 1.0
@@ -140,7 +130,7 @@ fn check_command_response(
       Some(@types.Int32(c)) => " (code: \{c})"
       _ => ""
     }
-    raise AsyncConnectionError::CommandFailed("\{errmsg}\{code}")
+    raise MongoError::CommandFailed("\{errmsg}\{code}")
   }
 
   // Check for write errors
@@ -157,7 +147,7 @@ fn check_command_response(
               Some(@types.Int32(c)) => " (code: \{c})"
               _ => ""
             }
-            raise AsyncConnectionError::WriteError("\{errmsg}\{code}")
+            raise MongoError::WriteError("\{errmsg}\{code}")
           }
           _ => ()
         }
@@ -172,7 +162,7 @@ fn check_command_response(
         Some(@types.String(msg)) => msg
         _ => "Write concern error"
       }
-      raise AsyncConnectionError::WriteError("WriteConcern: \{errmsg}")
+      raise MongoError::WriteError("WriteConcern: \{errmsg}")
     }
     _ => ()
   }
@@ -180,26 +170,26 @@ fn check_command_response(
 
 ///|
 /// Get collection name
-pub fn AsyncCollection::name(self : AsyncCollection) -> String {
+pub fn Collection::name(self : Collection) -> String {
   self.name
 }
 
 ///|
 /// Get full namespace (db.collection)
-pub fn AsyncCollection::full_name(self : AsyncCollection) -> String {
+pub fn Collection::full_name(self : Collection) -> String {
   "\{self.db.name}.\{self.name}"
 }
 
 ///|
 /// Insert result
-pub struct AsyncInsertResult {
+pub struct InsertResult {
   acknowledged : Bool
   inserted_count : Int
 }
 
 ///|
 /// Update result
-pub struct AsyncUpdateResult {
+pub struct UpdateResult {
   acknowledged : Bool
   matched_count : Int
   modified_count : Int
@@ -208,26 +198,26 @@ pub struct AsyncUpdateResult {
 
 ///|
 /// Delete result
-pub struct AsyncDeleteResult {
+pub struct DeleteResult {
   acknowledged : Bool
   deleted_count : Int
 }
 
 ///|
 /// Insert one document
-pub async fn AsyncCollection::insert_one(
-  self : AsyncCollection,
+pub async fn Collection::insert_one(
+  self : Collection,
   document : @types.BsonValue,
-) -> AsyncInsertResult raise AsyncConnectionError {
+) -> InsertResult raise MongoError {
   self.insert_many([document])
 }
 
 ///|
 /// Insert multiple documents
-pub async fn AsyncCollection::insert_many(
-  self : AsyncCollection,
+pub async fn Collection::insert_many(
+  self : Collection,
   documents : Array[@types.BsonValue],
-) -> AsyncInsertResult raise AsyncConnectionError {
+) -> InsertResult raise MongoError {
   let doc_array = @types.bson_array()
   for doc in documents {
     ignore(doc_array.push(doc))
@@ -247,8 +237,8 @@ pub async fn AsyncCollection::insert_many(
 
 ///|
 /// Find documents with options
-pub async fn AsyncCollection::find(
-  self : AsyncCollection,
+pub async fn Collection::find(
+  self : Collection,
   filter : @types.BsonValue,
   limit? : Int,
   skip? : Int,
@@ -257,7 +247,7 @@ pub async fn AsyncCollection::find(
   hint? : @types.BsonValue,
   batch_size? : Int,
   max_time_ms? : Int,
-) -> AsyncCursor raise AsyncConnectionError {
+) -> Cursor raise MongoError {
   let cmd = @types.bson_document()
     .set("find", @types.bson_string(self.name))
     .set("filter", filter)
@@ -305,31 +295,30 @@ pub async fn AsyncCollection::find(
         Some(@types.Array(arr)) => arr
         _ => []
       }
-      AsyncCursor::new(self, docs, cursor_id)
+      Cursor::new(self, docs, cursor_id)
     }
-    _ =>
-      raise AsyncConnectionError::InvalidResponse("No cursor in find response")
+    _ => raise MongoError::InvalidResponse("No cursor in find response")
   }
 }
 
 ///|
 /// Find one document
-pub async fn AsyncCollection::find_one(
-  self : AsyncCollection,
+pub async fn Collection::find_one(
+  self : Collection,
   filter : @types.BsonValue,
-) -> @types.BsonValue? raise AsyncConnectionError {
+) -> @types.BsonValue? raise MongoError {
   let cursor = self.find(filter, limit=1)
   cursor.next()
 }
 
 ///|
 /// Update one document
-pub async fn AsyncCollection::update_one(
-  self : AsyncCollection,
+pub async fn Collection::update_one(
+  self : Collection,
   filter : @types.BsonValue,
   update : @types.BsonValue,
   upsert? : Bool = false,
-) -> AsyncUpdateResult raise AsyncConnectionError {
+) -> UpdateResult raise MongoError {
   let update_doc = @types.bson_document()
     .set("q", filter)
     .set("u", update)
@@ -372,12 +361,12 @@ pub async fn AsyncCollection::update_one(
 
 ///|
 /// Update many documents
-pub async fn AsyncCollection::update_many(
-  self : AsyncCollection,
+pub async fn Collection::update_many(
+  self : Collection,
   filter : @types.BsonValue,
   update : @types.BsonValue,
   upsert? : Bool = false,
-) -> AsyncUpdateResult raise AsyncConnectionError {
+) -> UpdateResult raise MongoError {
   let update_doc = @types.bson_document()
     .set("q", filter)
     .set("u", update)
@@ -420,29 +409,29 @@ pub async fn AsyncCollection::update_many(
 
 ///|
 /// Delete one document
-pub async fn AsyncCollection::delete_one(
-  self : AsyncCollection,
+pub async fn Collection::delete_one(
+  self : Collection,
   filter : @types.BsonValue,
-) -> AsyncDeleteResult raise AsyncConnectionError {
+) -> DeleteResult raise MongoError {
   self.delete_internal(filter, 1)
 }
 
 ///|
 /// Delete many documents
-pub async fn AsyncCollection::delete_many(
-  self : AsyncCollection,
+pub async fn Collection::delete_many(
+  self : Collection,
   filter : @types.BsonValue,
-) -> AsyncDeleteResult raise AsyncConnectionError {
+) -> DeleteResult raise MongoError {
   self.delete_internal(filter, 0)
 }
 
 ///|
 /// Internal delete implementation
-async fn AsyncCollection::delete_internal(
-  self : AsyncCollection,
+async fn Collection::delete_internal(
+  self : Collection,
   filter : @types.BsonValue,
   limit : Int,
-) -> AsyncDeleteResult raise AsyncConnectionError {
+) -> DeleteResult raise MongoError {
   let delete_doc = @types.bson_document()
     .set("q", filter)
     .set("limit", @types.bson_int32(limit))
@@ -462,10 +451,10 @@ async fn AsyncCollection::delete_internal(
 
 ///|
 /// Count documents matching a filter
-pub async fn AsyncCollection::count_documents(
-  self : AsyncCollection,
+pub async fn Collection::count_documents(
+  self : Collection,
   filter : @types.BsonValue,
-) -> Int raise AsyncConnectionError {
+) -> Int raise MongoError {
   let cmd = @types.bson_document()
     .set("count", @types.bson_string(self.name))
     .set("query", filter)
@@ -482,9 +471,9 @@ pub async fn AsyncCollection::count_documents(
 
 ///|
 /// Estimated document count (uses collection metadata, faster but approximate)
-pub async fn AsyncCollection::estimated_count(
-  self : AsyncCollection,
-) -> Int raise AsyncConnectionError {
+pub async fn Collection::estimated_count(
+  self : Collection,
+) -> Int raise MongoError {
   let cmd = @types.bson_document()
     .set("count", @types.bson_string(self.name))
     .set("$db", @types.bson_string(self.db.name))
@@ -500,11 +489,11 @@ pub async fn AsyncCollection::estimated_count(
 
 ///|
 /// Get distinct values for a field
-pub async fn AsyncCollection::distinct(
-  self : AsyncCollection,
+pub async fn Collection::distinct(
+  self : Collection,
   field : String,
   filter? : @types.BsonValue,
-) -> Array[@types.BsonValue] raise AsyncConnectionError {
+) -> Array[@types.BsonValue] raise MongoError {
   let cmd = @types.bson_document()
     .set("distinct", @types.bson_string(self.name))
     .set("key", @types.bson_string(field))
@@ -523,13 +512,13 @@ pub async fn AsyncCollection::distinct(
 
 ///|
 /// Run an aggregation pipeline
-pub async fn AsyncCollection::aggregate(
-  self : AsyncCollection,
+pub async fn Collection::aggregate(
+  self : Collection,
   pipeline : Array[@types.BsonValue],
   batch_size? : Int,
   max_time_ms? : Int,
   allow_disk_use? : Bool,
-) -> AsyncCursor raise AsyncConnectionError {
+) -> Cursor raise MongoError {
   let pipeline_arr = @types.bson_array()
   for stage in pipeline {
     ignore(pipeline_arr.push(stage))
@@ -567,12 +556,9 @@ pub async fn AsyncCollection::aggregate(
         Some(@types.Array(arr)) => arr
         _ => []
       }
-      AsyncCursor::new(self, docs, cursor_id)
+      Cursor::new(self, docs, cursor_id)
     }
-    _ =>
-      raise AsyncConnectionError::InvalidResponse(
-        "No cursor in aggregate response",
-      )
+    _ => raise MongoError::InvalidResponse("No cursor in aggregate response")
   }
 }
 
@@ -597,15 +583,15 @@ pub fn ReturnDocument::after() -> ReturnDocument {
 
 ///|
 /// Find and update a single document atomically
-pub async fn AsyncCollection::find_one_and_update(
-  self : AsyncCollection,
+pub async fn Collection::find_one_and_update(
+  self : Collection,
   filter : @types.BsonValue,
   update : @types.BsonValue,
   return_document? : ReturnDocument,
   upsert? : Bool,
   projection? : @types.BsonValue,
   sort? : @types.BsonValue,
-) -> @types.BsonValue? raise AsyncConnectionError {
+) -> @types.BsonValue? raise MongoError {
   let cmd = @types.bson_document()
     .set("findAndModify", @types.bson_string(self.name))
     .set("query", filter)
@@ -635,13 +621,13 @@ pub async fn AsyncCollection::find_one_and_update(
 
 ///|
 /// Find and replace a single document atomically
-pub async fn AsyncCollection::find_one_and_replace(
-  self : AsyncCollection,
+pub async fn Collection::find_one_and_replace(
+  self : Collection,
   filter : @types.BsonValue,
   replacement : @types.BsonValue,
   return_document? : ReturnDocument,
   upsert? : Bool,
-) -> @types.BsonValue? raise AsyncConnectionError {
+) -> @types.BsonValue? raise MongoError {
   let cmd = @types.bson_document()
     .set("findAndModify", @types.bson_string(self.name))
     .set("query", filter)
@@ -662,12 +648,12 @@ pub async fn AsyncCollection::find_one_and_replace(
 
 ///|
 /// Find and delete a single document atomically
-pub async fn AsyncCollection::find_one_and_delete(
-  self : AsyncCollection,
+pub async fn Collection::find_one_and_delete(
+  self : Collection,
   filter : @types.BsonValue,
   projection? : @types.BsonValue,
   sort? : @types.BsonValue,
-) -> @types.BsonValue? raise AsyncConnectionError {
+) -> @types.BsonValue? raise MongoError {
   let cmd = @types.bson_document()
     .set("findAndModify", @types.bson_string(self.name))
     .set("query", filter)
@@ -688,12 +674,12 @@ pub async fn AsyncCollection::find_one_and_delete(
 
 ///|
 /// Replace a single document
-pub async fn AsyncCollection::replace_one(
-  self : AsyncCollection,
+pub async fn Collection::replace_one(
+  self : Collection,
   filter : @types.BsonValue,
   replacement : @types.BsonValue,
   upsert? : Bool,
-) -> AsyncUpdateResult raise AsyncConnectionError {
+) -> UpdateResult raise MongoError {
   let update_doc = @types.bson_document()
     .set("q", filter)
     .set("u", replacement)
@@ -738,11 +724,11 @@ pub async fn AsyncCollection::replace_one(
 
 ///|
 /// Rename the collection
-pub async fn AsyncCollection::rename(
-  self : AsyncCollection,
+pub async fn Collection::rename(
+  self : Collection,
   new_name : String,
   drop_target? : Bool,
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   let cmd = @types.bson_document()
     .set("renameCollection", @types.bson_string(self.full_name()))
     .set("to", @types.bson_string("\{self.db.name}.\{new_name}"))
@@ -757,9 +743,7 @@ pub async fn AsyncCollection::rename(
 
 ///|
 /// Drop the collection
-pub async fn AsyncCollection::drop(
-  self : AsyncCollection,
-) -> Unit raise AsyncConnectionError {
+pub async fn Collection::drop(self : Collection) -> Unit raise MongoError {
   let cmd = @types.bson_document()
     .set("drop", @types.bson_string(self.name))
     .set("$db", @types.bson_string(self.db.name))
@@ -788,8 +772,8 @@ pub struct CollectionInfo {
 
 ///|
 /// Create a new collection
-pub async fn AsyncDatabase::create_collection(
-  self : AsyncDatabase,
+pub async fn Database::create_collection(
+  self : Database,
   name : String,
   capped? : Bool,
   size? : Int64,
@@ -797,7 +781,7 @@ pub async fn AsyncDatabase::create_collection(
   validator? : @types.BsonValue,
   validation_level? : String,
   validation_action? : String,
-) -> AsyncCollection raise AsyncConnectionError {
+) -> Collection raise MongoError {
   let cmd = @types.bson_document()
     .set("create", @types.bson_string(name))
     .set("$db", @types.bson_string(self.name))
@@ -832,20 +816,20 @@ pub async fn AsyncDatabase::create_collection(
 
 ///|
 /// Drop a collection by name
-pub async fn AsyncDatabase::drop_collection(
-  self : AsyncDatabase,
+pub async fn Database::drop_collection(
+  self : Database,
   name : String,
-) -> Unit raise AsyncConnectionError {
+) -> Unit raise MongoError {
   let coll = self.collection(name)
   coll.drop()
 }
 
 ///|
 /// List all collections in the database
-pub async fn AsyncDatabase::list_collections(
-  self : AsyncDatabase,
+pub async fn Database::list_collections(
+  self : Database,
   filter? : @types.BsonValue,
-) -> Array[CollectionInfo] raise AsyncConnectionError {
+) -> Array[CollectionInfo] raise MongoError {
   let cmd = @types.bson_document()
     .set("listCollections", @types.bson_int32(1))
     .set("$db", @types.bson_string(self.name))
@@ -889,9 +873,9 @@ pub async fn AsyncDatabase::list_collections(
 
 ///|
 /// List collection names
-pub async fn AsyncDatabase::list_collection_names(
-  self : AsyncDatabase,
-) -> Array[String] raise AsyncConnectionError {
+pub async fn Database::list_collection_names(
+  self : Database,
+) -> Array[String] raise MongoError {
   let collections = self.list_collections()
   let names : Array[String] = []
   for coll in collections {
@@ -902,9 +886,7 @@ pub async fn AsyncDatabase::list_collection_names(
 
 ///|
 /// Drop the database
-pub async fn AsyncDatabase::drop(
-  self : AsyncDatabase,
-) -> Unit raise AsyncConnectionError {
+pub async fn Database::drop(self : Database) -> Unit raise MongoError {
   let cmd = @types.bson_document()
     .set("dropDatabase", @types.bson_int32(1))
     .set("$db", @types.bson_string(self.name))
@@ -914,9 +896,9 @@ pub async fn AsyncDatabase::drop(
 
 ///|
 /// Get database statistics
-pub async fn AsyncDatabase::stats(
-  self : AsyncDatabase,
-) -> @types.BsonValue raise AsyncConnectionError {
+pub async fn Database::stats(
+  self : Database,
+) -> @types.BsonValue raise MongoError {
   let cmd = @types.bson_document()
     .set("dbStats", @types.bson_int32(1))
     .set("$db", @types.bson_string(self.name))
@@ -937,9 +919,9 @@ pub struct DatabaseInfo {
 
 ///|
 /// List all databases
-pub async fn AsyncClient::list_databases(
-  self : AsyncClient,
-) -> Array[DatabaseInfo] raise AsyncConnectionError {
+pub async fn Client::list_databases(
+  self : Client,
+) -> Array[DatabaseInfo] raise MongoError {
   let cmd = @types.bson_document()
     .set("listDatabases", @types.bson_int32(1))
     .set("$db", @types.bson_string("admin"))
@@ -977,9 +959,9 @@ pub async fn AsyncClient::list_databases(
 
 ///|
 /// List database names
-pub async fn AsyncClient::list_database_names(
-  self : AsyncClient,
-) -> Array[String] raise AsyncConnectionError {
+pub async fn Client::list_database_names(
+  self : Client,
+) -> Array[String] raise MongoError {
   let databases = self.list_databases()
   let names : Array[String] = []
   for db in databases {
@@ -990,9 +972,9 @@ pub async fn AsyncClient::list_database_names(
 
 ///|
 /// Get server info
-pub async fn AsyncClient::server_info(
-  self : AsyncClient,
-) -> @types.BsonValue raise AsyncConnectionError {
+pub async fn Client::server_info(
+  self : Client,
+) -> @types.BsonValue raise MongoError {
   let cmd = @types.bson_document()
     .set("buildInfo", @types.bson_int32(1))
     .set("$db", @types.bson_string("admin"))
@@ -1003,9 +985,7 @@ pub async fn AsyncClient::server_info(
 
 ///|
 /// Ping the server
-pub async fn AsyncClient::ping(
-  self : AsyncClient,
-) -> Bool raise AsyncConnectionError {
+pub async fn Client::ping(self : Client) -> Bool raise MongoError {
   let cmd = @types.bson_document()
     .set("ping", @types.bson_int32(1))
     .set("$db", @types.bson_string("admin"))
