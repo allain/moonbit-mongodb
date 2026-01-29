@@ -79,7 +79,7 @@ pub async fn GridFSBucket::upload(
       .set("files_id", file_id_bson)
       .set("n", @types.bson_int32(chunk_num))
       .set("data", @types.bson_binary(chunk_data, b'\x00'))
-    let _ = chunks_coll.insert_one(chunk_doc)
+    let _ = chunks_coll.insert_one_bson(chunk_doc)
     chunk_num = chunk_num + 1
     offset = chunk_end
   }
@@ -95,7 +95,7 @@ pub async fn GridFSBucket::upload(
     Some(m) => file_doc.set("metadata", m)
     None => file_doc
   }
-  let _ = self.files_collection().insert_one(file_doc)
+  let _ = self.files_collection().insert_one_bson(file_doc)
   file_id_bson
 }
 
@@ -108,7 +108,7 @@ pub async fn GridFSBucket::download(
   // Get file info
   let files_coll = self.files_collection()
   let filter = @types.bson_document().set("_id", id)
-  let file_doc = match files_coll.find_one(filter) {
+  let file_doc = match files_coll.find_one_bson(filter) {
     Some(doc) => doc
     None => raise MongoError::CommandFailed("File not found")
   }
@@ -125,7 +125,7 @@ pub async fn GridFSBucket::download(
   let chunks_coll = self.chunks_collection()
   let chunk_filter = @types.bson_document().set("files_id", id)
   let sort = @types.bson_document().set("n", @types.bson_int32(1))
-  let cursor = chunks_coll.find(chunk_filter, sort~)
+  let cursor = chunks_coll.find_bson(chunk_filter, sort~)
   let chunks = cursor.to_bson_array()
   for chunk in chunks {
     match chunk.get("data") {
@@ -157,7 +157,7 @@ pub async fn GridFSBucket::download_by_name(
     @types.bson_string(filename),
   )
   let sort = @types.bson_document().set("uploadDate", @types.bson_int32(-1))
-  let cursor = files_coll.find(filter, sort~, limit=1)
+  let cursor = files_coll.find_bson(filter, sort~, limit=1)
   match cursor.next() {
     Some(doc) =>
       match doc.get("_id") {
@@ -176,11 +176,11 @@ pub async fn GridFSBucket::delete(
 ) -> Unit raise MongoError {
   // Delete chunks first
   let chunk_filter = @types.bson_document().set("files_id", id)
-  let _ = self.chunks_collection().delete_many(chunk_filter)
+  let _ = self.chunks_collection().delete_many_bson(chunk_filter)
 
   // Delete file document
   let file_filter = @types.bson_document().set("_id", id)
-  let _ = self.files_collection().delete_one(file_filter)
+  let _ = self.files_collection().delete_one_bson(file_filter)
 
 }
 
@@ -190,7 +190,7 @@ pub async fn GridFSBucket::find(
   self : GridFSBucket,
   filter : @types.BsonValue,
 ) -> Array[@types.BsonValue] raise MongoError {
-  let cursor = self.files_collection().find(filter)
+  let cursor = self.files_collection().find_bson(filter)
   cursor.to_bson_array()
 }
 
@@ -206,7 +206,7 @@ pub async fn GridFSBucket::rename(
     "$set",
     @types.bson_document().set("filename", @types.bson_string(new_filename)),
   )
-  let _ = self.files_collection().update_one(filter, update)
+  let _ = self.files_collection().update_one_bson(filter, update)
 
 }
 
@@ -224,7 +224,7 @@ pub async fn GridFSBucket::exists(
   id : @types.BsonValue,
 ) -> Bool raise MongoError {
   let filter = @types.bson_document().set("_id", id)
-  match self.files_collection().find_one(filter) {
+  match self.files_collection().find_one_bson(filter) {
     Some(_) => true
     None => false
   }
@@ -237,5 +237,5 @@ pub async fn GridFSBucket::get_file_info(
   id : @types.BsonValue,
 ) -> @types.BsonValue? raise MongoError {
   let filter = @types.bson_document().set("_id", id)
-  self.files_collection().find_one(filter)
+  self.files_collection().find_one_bson(filter)
 }

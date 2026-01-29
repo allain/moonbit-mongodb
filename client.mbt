@@ -204,17 +204,17 @@ pub struct DeleteResult {
 }
 
 ///|
-/// Insert one document
-pub async fn Collection::insert_one(
+/// Insert one document (internal BSON API)
+async fn Collection::insert_one_bson(
   self : Collection,
   document : @types.BsonValue,
 ) -> InsertResult raise MongoError {
-  self.insert_many([document])
+  self.insert_many_bson([document])
 }
 
 ///|
-/// Insert multiple documents
-pub async fn Collection::insert_many(
+/// Insert multiple documents (internal BSON API)
+async fn Collection::insert_many_bson(
   self : Collection,
   documents : Array[@types.BsonValue],
 ) -> InsertResult raise MongoError {
@@ -236,8 +236,8 @@ pub async fn Collection::insert_many(
 }
 
 ///|
-/// Find documents with options
-pub async fn Collection::find(
+/// Find documents with options (internal BSON API)
+async fn Collection::find_bson(
   self : Collection,
   filter : @types.BsonValue,
   limit? : Int,
@@ -302,18 +302,18 @@ pub async fn Collection::find(
 }
 
 ///|
-/// Find one document
-pub async fn Collection::find_one(
+/// Find one document (internal BSON API)
+async fn Collection::find_one_bson(
   self : Collection,
   filter : @types.BsonValue,
 ) -> @types.BsonValue? raise MongoError {
-  let cursor = self.find(filter, limit=1)
+  let cursor = self.find_bson(filter, limit=1)
   cursor.next()
 }
 
 ///|
-/// Update one document
-pub async fn Collection::update_one(
+/// Update one document (internal BSON API)
+async fn Collection::update_one_bson(
   self : Collection,
   filter : @types.BsonValue,
   update : @types.BsonValue,
@@ -360,8 +360,8 @@ pub async fn Collection::update_one(
 }
 
 ///|
-/// Update many documents
-pub async fn Collection::update_many(
+/// Update many documents (internal BSON API)
+async fn Collection::update_many_bson(
   self : Collection,
   filter : @types.BsonValue,
   update : @types.BsonValue,
@@ -408,8 +408,8 @@ pub async fn Collection::update_many(
 }
 
 ///|
-/// Delete one document
-pub async fn Collection::delete_one(
+/// Delete one document (internal BSON API)
+async fn Collection::delete_one_bson(
   self : Collection,
   filter : @types.BsonValue,
 ) -> DeleteResult raise MongoError {
@@ -417,8 +417,8 @@ pub async fn Collection::delete_one(
 }
 
 ///|
-/// Delete many documents
-pub async fn Collection::delete_many(
+/// Delete many documents (internal BSON API)
+async fn Collection::delete_many_bson(
   self : Collection,
   filter : @types.BsonValue,
 ) -> DeleteResult raise MongoError {
@@ -450,8 +450,8 @@ async fn Collection::delete_internal(
 }
 
 ///|
-/// Count documents matching a filter
-pub async fn Collection::count_documents(
+/// Count documents matching a filter (internal BSON API)
+async fn Collection::count_documents_bson(
   self : Collection,
   filter : @types.BsonValue,
 ) -> Int raise MongoError {
@@ -488,8 +488,8 @@ pub async fn Collection::estimated_count(
 }
 
 ///|
-/// Get distinct values for a field
-pub async fn Collection::distinct(
+/// Get distinct values for a field (internal BSON API)
+async fn Collection::distinct_bson(
   self : Collection,
   field : String,
   filter? : @types.BsonValue,
@@ -582,8 +582,8 @@ pub fn ReturnDocument::after() -> ReturnDocument {
 }
 
 ///|
-/// Find and update a single document atomically
-pub async fn Collection::find_one_and_update(
+/// Find and update a single document atomically (internal BSON API)
+async fn Collection::find_one_and_update_bson(
   self : Collection,
   filter : @types.BsonValue,
   update : @types.BsonValue,
@@ -620,8 +620,8 @@ pub async fn Collection::find_one_and_update(
 }
 
 ///|
-/// Find and replace a single document atomically
-pub async fn Collection::find_one_and_replace(
+/// Find and replace a single document atomically (internal BSON API)
+async fn Collection::find_one_and_replace_bson(
   self : Collection,
   filter : @types.BsonValue,
   replacement : @types.BsonValue,
@@ -647,8 +647,8 @@ pub async fn Collection::find_one_and_replace(
 }
 
 ///|
-/// Find and delete a single document atomically
-pub async fn Collection::find_one_and_delete(
+/// Find and delete a single document atomically (internal BSON API)
+async fn Collection::find_one_and_delete_bson(
   self : Collection,
   filter : @types.BsonValue,
   projection? : @types.BsonValue,
@@ -673,8 +673,8 @@ pub async fn Collection::find_one_and_delete(
 }
 
 ///|
-/// Replace a single document
-pub async fn Collection::replace_one(
+/// Replace a single document (internal BSON API)
+async fn Collection::replace_one_bson(
   self : Collection,
   filter : @types.BsonValue,
   replacement : @types.BsonValue,

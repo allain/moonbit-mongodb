@@ -78,11 +78,11 @@ async fn run(_group : @async.TaskGroup[Unit]) -> Unit raise Error {
 
 ```moonbit
 // Insert a single document
-let result = users.insert({ "name": "Alice", "age": 30, "city": "NYC" })!
+let result = users.insert_one({ "name": "Alice", "age": 30, "city": "NYC" })!
 println("Inserted: \{result.inserted_count}")
 
 // Insert multiple documents
-let result = users.insert_all([
+let result = users.insert_many([
   { "name": "Bob", "age": 25 },
   { "name": "Charlie", "age": 35 },
 ])!
@@ -92,13 +92,13 @@ let result = users.insert_all([
 
 ```moonbit
 // Find all documents
-let all_users = users.query({})!
+let all_users = users.find({})!
 
 // Find with filter
-let adults = users.query({ "age": { "$gte": 18 } })!
+let adults = users.find({ "age": { "$gte": 18 } })!
 
 // Find with limit, skip, and sort
-let top_users = users.query(
+let top_users = users.find(
   { "active": true },
   limit=10,
   skip=0,
@@ -106,40 +106,40 @@ let top_users = users.query(
 )!
 
 // Find one document
-match users.query_one({ "name": "Alice" })! {
+match users.find_one({ "name": "Alice" })! {
   Some(user) => println(user.stringify())
   None => println("Not found")
 }
 
 // Count documents
-let count = users.count({ "status": "active" })!
+let count = users.count_documents({ "status": "active" })!
 ```
 
 ### Updating Documents
 
 ```moonbit
 // Update one document
-let result = users.modify_one(
+let result = users.update_one(
   { "name": "Alice" },
   { "$set": { "age": 31 } },
 )!
 println("Modified: \{result.modified_count}")
 
 // Update with upsert (insert if not found)
-users.modify_one(
+users.update_one(
   { "name": "Dave" },
   { "$set": { "age": 28 } },
   upsert=true,
 )!
 
 // Update multiple documents
-users.modify_all(
+users.update_many(
   { "status": "pending" },
   { "$set": { "status": "processed" } },
 )!
 
 // Replace a document entirely
-users.replace(
+users.replace_one(
   { "name": "Alice" },
   { "name": "Alice", "age": 32, "city": "LA" },
 )!
@@ -149,18 +149,18 @@ users.replace(
 
 ```moonbit
 // Delete one document
-let result = users.remove_one({ "name": "Alice" })!
+let result = users.delete_one({ "name": "Alice" })!
 println("Deleted: \{result.deleted_count}")
 
 // Delete multiple documents
-users.remove_all({ "status": "inactive" })!
+users.delete_many({ "status": "inactive" })!
 ```
 
 ### Atomic Find-and-Modify
 
 ```moonbit
 // Find and update atomically, returning the new document
-let updated = users.find_one_and_modify(
+let updated = users.find_one_and_update(
   { "name": "Alice" },
   { "$inc": { "visits": 1 } },
   return_new=true,
@@ -293,7 +293,7 @@ let stats = db.stats()!
 Query results are JSON values that can be pattern matched:
 
 ```moonbit
-let results = users.query({})!
+let results = users.find({})!
 
 for user in results {
   match user {
@@ -341,7 +341,7 @@ for user in results {
 
 ```moonbit
 ///|
-let result = users.insert({ "name": "Alice" }) catch {
+let result = users.insert_one({ "name": "Alice" }) catch {
   @mongodb.MongoError::ConnectionFailed(msg) => {
     println("Connection failed: \{msg}")
     return
@@ -376,7 +376,7 @@ Special types are represented using MongoDB Extended JSON:
 
 ```moonbit
 // Query by ObjectId
-let user = users.query_one({ "_id": { "$oid": "507f1f77bcf86cd799439011" } })!
+let user = users.find_one({ "_id": { "$oid": "507f1f77bcf86cd799439011" } })!
 ```
 
 ## Requirements

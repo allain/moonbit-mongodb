@@ -1,15 +1,15 @@
 ///|
-/// Insert one document (JSON API)
-pub async fn Collection::insert(
+/// Insert one document
+pub async fn Collection::insert_one(
   self : Collection,
   document : Json,
 ) -> InsertResult raise MongoError {
-  self.insert_one(@types.json_to_bson(document))
+  self.insert_one_bson(@types.json_to_bson(document))
 }
 
 ///|
-/// Insert multiple documents (JSON API)
-pub async fn Collection::insert_all(
+/// Insert multiple documents
+pub async fn Collection::insert_many(
   self : Collection,
   documents : Array[Json],
 ) -> InsertResult raise MongoError {
@@ -17,12 +17,12 @@ pub async fn Collection::insert_all(
   for doc in documents {
     bson_docs.push(@types.json_to_bson(doc))
   }
-  self.insert_many(bson_docs)
+  self.insert_many_bson(bson_docs)
 }
 
 ///|
-/// Find documents (JSON API)
-pub async fn Collection::query(
+/// Find documents matching a filter
+pub async fn Collection::find(
   self : Collection,
   filter : Json,
   limit? : Int,
@@ -32,7 +32,7 @@ pub async fn Collection::query(
 ) -> Array[Json] raise MongoError {
   let cursor = match (sort, projection) {
     (Some(s), Some(p)) =>
-      self.find(
+      self.find_bson(
         @types.json_to_bson(filter),
         limit?,
         skip?,
@@ -40,45 +40,45 @@ pub async fn Collection::query(
         projection=@types.json_to_bson(p),
       )
     (Some(s), None) =>
-      self.find(
+      self.find_bson(
         @types.json_to_bson(filter),
         limit?,
         skip?,
         sort=@types.json_to_bson(s),
       )
     (None, Some(p)) =>
-      self.find(
+      self.find_bson(
         @types.json_to_bson(filter),
         limit?,
         skip?,
         projection=@types.json_to_bson(p),
       )
-    (None, None) => self.find(@types.json_to_bson(filter), limit?, skip?)
+    (None, None) => self.find_bson(@types.json_to_bson(filter), limit?, skip?)
   }
   cursor.to_array()
 }
 
 ///|
-/// Find one document (JSON API)
-pub async fn Collection::query_one(
+/// Find one document matching a filter
+pub async fn Collection::find_one(
   self : Collection,
   filter : Json,
 ) -> Json? raise MongoError {
-  match self.find_one(@types.json_to_bson(filter)) {
+  match self.find_one_bson(@types.json_to_bson(filter)) {
     Some(doc) => Some(@types.bson_to_json(doc))
     None => None
   }
 }
 
 ///|
-/// Update one document (JSON API)
-pub async fn Collection::modify_one(
+/// Update one document
+pub async fn Collection::update_one(
   self : Collection,
   filter : Json,
   update : Json,
   upsert? : Bool = false,
 ) -> UpdateResult raise MongoError {
-  self.update_one(
+  self.update_one_bson(
     @types.json_to_bson(filter),
     @types.json_to_bson(update),
     upsert~,
@@ -86,14 +86,14 @@ pub async fn Collection::modify_one(
 }
 
 ///|
-/// Update many documents (JSON API)
-pub async fn Collection::modify_all(
+/// Update many documents
+pub async fn Collection::update_many(
   self : Collection,
   filter : Json,
   update : Json,
   upsert? : Bool = false,
 ) -> UpdateResult raise MongoError {
-  self.update_many(
+  self.update_many_bson(
     @types.json_to_bson(filter),
     @types.json_to_bson(update),
     upsert~,
@@ -101,34 +101,34 @@ pub async fn Collection::modify_all(
 }
 
 ///|
-/// Delete one document (JSON API)
-pub async fn Collection::remove_one(
+/// Delete one document
+pub async fn Collection::delete_one(
   self : Collection,
   filter : Json,
 ) -> DeleteResult raise MongoError {
-  self.delete_one(@types.json_to_bson(filter))
+  self.delete_one_bson(@types.json_to_bson(filter))
 }
 
 ///|
-/// Delete many documents (JSON API)
-pub async fn Collection::remove_all(
+/// Delete many documents
+pub async fn Collection::delete_many(
   self : Collection,
   filter : Json,
 ) -> DeleteResult raise MongoError {
-  self.delete_many(@types.json_to_bson(filter))
+  self.delete_many_bson(@types.json_to_bson(filter))
 }
 
 ///|
-/// Count documents matching a filter (JSON API)
-pub async fn Collection::count(
+/// Count documents matching a filter
+pub async fn Collection::count_documents(
   self : Collection,
   filter : Json,
 ) -> Int raise MongoError {
-  self.count_documents(@types.json_to_bson(filter))
+  self.count_documents_bson(@types.json_to_bson(filter))
 }
 
 ///|
-/// Run aggregation pipeline (JSON API)
+/// Run aggregation pipeline
 pub async fn Collection::aggregate(
   self : Collection,
   pipeline : Array[Json],
@@ -145,15 +145,15 @@ pub async fn Collection::aggregate(
 }
 
 ///|
-/// Get distinct values for a field (JSON API)
-pub async fn Collection::distinct_json(
+/// Get distinct values for a field
+pub async fn Collection::distinct(
   self : Collection,
   field : String,
   filter? : Json,
 ) -> Array[Json] raise MongoError {
   let values = match filter {
-    Some(f) => self.distinct(field, filter=@types.json_to_bson(f))
-    None => self.distinct(field)
+    Some(f) => self.distinct_bson(field, filter=@types.json_to_bson(f))
+    None => self.distinct_bson(field)
   }
   let json_values : Array[Json] = []
   for v in values {
@@ -163,8 +163,8 @@ pub async fn Collection::distinct_json(
 }
 
 ///|
-/// Find and update a single document atomically (JSON API)
-pub async fn Collection::find_one_and_modify(
+/// Find and update a single document atomically
+pub async fn Collection::find_one_and_update(
   self : Collection,
   filter : Json,
   update : Json,
@@ -173,26 +173,26 @@ pub async fn Collection::find_one_and_modify(
 ) -> Json? raise MongoError {
   let result = match (return_new, upsert) {
     (Some(true), Some(u)) =>
-      self.find_one_and_update(
+      self.find_one_and_update_bson(
         @types.json_to_bson(filter),
         @types.json_to_bson(update),
         return_document=ReturnDocument::After,
         upsert=u,
       )
     (Some(true), None) =>
-      self.find_one_and_update(
+      self.find_one_and_update_bson(
         @types.json_to_bson(filter),
         @types.json_to_bson(update),
         return_document=ReturnDocument::After,
       )
     (_, Some(u)) =>
-      self.find_one_and_update(
+      self.find_one_and_update_bson(
         @types.json_to_bson(filter),
         @types.json_to_bson(update),
         upsert=u,
       )
     (_, None) =>
-      self.find_one_and_update(
+      self.find_one_and_update_bson(
         @types.json_to_bson(filter),
         @types.json_to_bson(update),
       )
@@ -204,8 +204,8 @@ pub async fn Collection::find_one_and_modify(
 }
 
 ///|
-/// Find and delete one document (JSON API)
-pub async fn Collection::find_and_delete(
+/// Find and delete one document
+pub async fn Collection::find_one_and_delete(
   self : Collection,
   filter : Json,
   sort? : Json,
@@ -213,22 +213,22 @@ pub async fn Collection::find_and_delete(
 ) -> Json? raise MongoError {
   let result = match (sort, projection) {
     (Some(s), Some(p)) =>
-      self.find_one_and_delete(
+      self.find_one_and_delete_bson(
         @types.json_to_bson(filter),
         sort=@types.json_to_bson(s),
         projection=@types.json_to_bson(p),
       )
     (Some(s), None) =>
-      self.find_one_and_delete(
+      self.find_one_and_delete_bson(
         @types.json_to_bson(filter),
         sort=@types.json_to_bson(s),
       )
     (None, Some(p)) =>
-      self.find_one_and_delete(
+      self.find_one_and_delete_bson(
         @types.json_to_bson(filter),
         projection=@types.json_to_bson(p),
       )
-    (None, None) => self.find_one_and_delete(@types.json_to_bson(filter))
+    (None, None) => self.find_one_and_delete_bson(@types.json_to_bson(filter))
   }
   match result {
     Some(doc) => Some(@types.bson_to_json(doc))
@@ -237,8 +237,8 @@ pub async fn Collection::find_and_delete(
 }
 
 ///|
-/// Find and replace one document (JSON API)
-pub async fn Collection::find_and_replace(
+/// Find and replace one document
+pub async fn Collection::find_one_and_replace(
   self : Collection,
   filter : Json,
   replacement : Json,
@@ -249,7 +249,7 @@ pub async fn Collection::find_and_replace(
     Some(true) => ReturnDocument::After
     _ => ReturnDocument::Before
   }
-  let result = self.find_one_and_replace(
+  let result = self.find_one_and_replace_bson(
     @types.json_to_bson(filter),
     @types.json_to_bson(replacement),
     return_document=return_doc,
@@ -262,14 +262,14 @@ pub async fn Collection::find_and_replace(
 }
 
 ///|
-/// Replace one document (JSON API)
-pub async fn Collection::replace(
+/// Replace one document
+pub async fn Collection::replace_one(
   self : Collection,
   filter : Json,
   replacement : Json,
   upsert? : Bool,
 ) -> UpdateResult raise MongoError {
-  self.replace_one(
+  self.replace_one_bson(
     @types.json_to_bson(filter),
     @types.json_to_bson(replacement),
     upsert?,
